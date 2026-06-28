@@ -1,0 +1,314 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # DATABASE
+  # ============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: crm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-crm}
+      POSTGRES_USER: ${DB_USER:-crm}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./sql/schema/001_initial_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./sql/seeds/seed_data.sql:/docker-entrypoint-initdb.d/02-seeds.sql:ro
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-crm} -d ${DB_NAME:-crm}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - crm_internal
+
+  # ============================================================================
+  # REDIS (Broker + Cache)
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: crm-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      --appendfsync everysec
+    volumes:
+      - redis_data:/data
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - crm_internal
+
+  # ============================================================================
+  # MINIO (S3-compatible file storage)
+  # ============================================================================
+  minio:
+    image: minio/minio:latest
+    container_name: crm-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-crm_minio}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - crm_internal
+
+  # ============================================================================
+  # BACKEND API (FastAPI)
+  # ============================================================================
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: crm-api
+    restart: unless-stopped
+    command: >
+      uvicorn app.main:app
+      --host 0.0.0.0
+      --port 8000
+      --workers 2
+      --proxy-headers
+      --forwarded-allow-ips="*"
+    environment:
+      - APP_ENV=production
+      - SECRET_KEY=${SECRET_KEY}
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-crm}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-crm}
+      - REDIS_URL=redis://redis:6379/0
+      - S3_ENDPOINT=http://minio:9000
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY:-crm_minio}
+      - S3_SECRET_KEY=${S3_SECRET_KEY}
+      - S3_BUCKET=crm-data
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - IMAP_HOST=${IMAP_HOST:-}
+      - IMAP_PORT=${IMAP_PORT:-993}
+      - IMAP_USER=${IMAP_USER:-}
+      - IMAP_PASSWORD=${IMAP_PASSWORD:-}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - PHONE_API_KEY=${PHONE_API_KEY:-}
+      - PHONE_API_SECRET=${PHONE_API_SECRET:-}
+      - PHONE_DOMAIN=${PHONE_DOMAIN:-}
+      - WEBFORM_API_KEY=${WEBFORM_API_KEY:-}
+      - RECAPTCHA_SECRET_KEY=${RECAPTCHA_SECRET_KEY:-}
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"
+    networks:
+      - crm_internal
+
+  # ============================================================================
+  # CELERY WORKER (Ingestion + Default queues)
+  # ============================================================================
+  worker_default:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: crm-worker-default
+    restart: unless-stopped
+    command: >
+      celery -A app.workers.celery_app worker
+      --loglevel=info
+      --concurrency=4
+      -Q ingestion,default
+      --max-tasks-per-child=100
+    environment:
+      - APP_ENV=production
+      - SECRET_KEY=${SECRET_KEY}
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-crm}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-crm}
+      - REDIS_URL=redis://redis:6379/0
+      - S3_ENDPOINT=http://minio:9000
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY:-crm_minio}
+      - S3_SECRET_KEY=${S3_SECRET_KEY}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - IMAP_HOST=${IMAP_HOST:-}
+      - IMAP_USER=${IMAP_USER:-}
+      - IMAP_PASSWORD=${IMAP_PASSWORD:-}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - crm_internal
+
+  # ============================================================================
+  # CELERY WORKER (Documents queue — PDF/DOCX generation)
+  # ============================================================================
+  worker_docs:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: crm-worker-docs
+    restart: unless-stopped
+    command: >
+      celery -A app.workers.celery_app worker
+      --loglevel=info
+      --concurrency=2
+      -Q documents
+      --max-tasks-per-child=50
+    environment:
+      - APP_ENV=production
+      - SECRET_KEY=${SECRET_KEY}
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-crm}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-crm}
+      - REDIS_URL=redis://redis:6379/0
+      - S3_ENDPOINT=http://minio:9000
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY:-crm_minio}
+      - S3_SECRET_KEY=${S3_SECRET_KEY}
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - crm_internal
+
+  # ============================================================================
+  # CELERY BEAT (Scheduler)
+  # ============================================================================
+  beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: crm-beat
+    restart: unless-stopped
+    command: >
+      celery -A app.workers.celery_app beat
+      --loglevel=info
+      --pidfile=/tmp/celerybeat.pid
+    environment:
+      - APP_ENV=production
+      - SECRET_KEY=${SECRET_KEY}
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-crm}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-crm}
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./backend:/app
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - crm_internal
+
+  # ============================================================================
+  # FRONTEND (React static build served by Nginx)
+  # ============================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: crm-frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:80"
+    networks:
+      - crm_internal
+
+  # ============================================================================
+  # NGINX (Reverse Proxy + TLS)
+  # ============================================================================
+  nginx:
+    image: nginx:alpine
+    container_name: crm-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - api
+      - frontend
+    networks:
+      - crm_internal
+
+  # ============================================================================
+  # MONITORING (Prometheus + Grafana) — optional for MVP
+  # ============================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: crm-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    networks:
+      - crm_internal
+    profiles:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: crm-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3001:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - crm_internal
+    profiles:
+      - monitoring
+
+# ============================================================================
+# VOLUMES
+# ============================================================================
+volumes:
+  pg_data:
+  redis_data:
+  minio_data:
+  nginx_logs:
+  prometheus_data:
+  grafana_data:
+
+# ============================================================================
+# NETWORKS
+# ============================================================================
+networks:
+  crm_internal:
+    driver: bridge

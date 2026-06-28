@@ -1,0 +1,1036 @@
+openapi: 3.0.3
+info:
+  title: CRM System API
+  description: |
+    REST API для CRM системы обработки входящих заявок.
+    
+    ## Аутентификация
+    Все эндпоинты (кроме `/auth/*` и `/public/*`) требуют JWT-токен в заголовке:
+    ```
+    Authorization: Bearer <access_token>
+    ```
+    
+    Токен получается через `POST /api/v1/auth/login` (validity: 15 min).
+    Обновление через `POST /api/v1/auth/refresh` (refresh token: 7 days).
+  version: 1.0.0
+  contact:
+    name: CRM System
+servers:
+  - url: https://crm.company.ru/api/v1
+    description: Production
+  - url: http://localhost:8000/api/v1
+    description: Development
+
+tags:
+  - name: Auth
+    description: Аутентификация и авторизация
+  - name: Customers
+    description: Клиенты и контакты
+  - name: Leads
+    description: Лиды и заявки
+  - name: Deals
+    description: Сделки и воронка
+  - name: Tasks
+    description: Задачи
+  - name: Finance
+    description: Счета и оплаты
+  - name: Documents
+    description: Документы и шаблоны
+  - name: Calendar
+    description: Календарь и события
+  - name: Analytics
+    description: Аналитика и отчёты
+  - name: Public
+    description: Публичные эндпоинты (без авторизации)
+  - name: Webhooks
+    description: Вебхуки внешних сервисов
+
+security:
+  - BearerAuth: []
+
+paths:
+  # ============================================================================
+  # AUTH
+  # ============================================================================
+  /auth/login:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Вход в систему
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Успешный вход
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  refresh_token:
+                    type: string
+                  token_type:
+                    type: string
+                    example: bearer
+                  expires_in:
+                    type: integer
+                    example: 900
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Обновление токена
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '200':
+          description: Новый access токен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  expires_in:
+                    type: integer
+
+  # ============================================================================
+  # CUSTOMERS
+  # ============================================================================
+  /customers:
+    get:
+      tags: [Customers]
+      summary: Список клиентов
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - name: search
+          in: query
+          description: Поиск по имени, ИНН, телефону
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/CustomerStatus' }
+        - name: manager_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: sort
+          in: query
+          schema: { type: string, example: "-created_at" }
+      responses:
+        '200':
+          description: Список клиентов
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Customer' }
+                  total: { type: integer, example: 142 }
+                  page: { type: integer, example: 1 }
+                  per_page: { type: integer, example: 20 }
+    post:
+      tags: [Customers]
+      summary: Создание клиента
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerCreate'
+      responses:
+        '201':
+          description: Клиент создан
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Customer' }
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /customers/{id}:
+    get:
+      tags: [Customers]
+      summary: Карточка клиента
+      parameters: [{ $ref: '#/components/parameters/PathId' }]
+      responses:
+        '200':
+          description: Клиент
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Customer' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Customers]
+      summary: Обновление клиента
+      parameters: [{ $ref: '#/components/parameters/PathId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CustomerUpdate' }
+      responses:
+        '200':
+          description: Обновлённый клиент
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Customer' }
+    delete:
+      tags: [Customers]
+      summary: Удаление клиента (soft delete)
+      parameters: [{ $ref: '#/components/parameters/PathId' }]
+      responses:
+        '204':
+          description: Удалён
+
+  /customers/{id}/interactions:
+    get:
+      tags: [Customers]
+      summary: История взаимодействий клиента (timeline)
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - name: type
+          in: query
+          schema: { $ref: '#/components/schemas/InteractionType' }
+      responses:
+        '200':
+          description: Timeline
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Interaction' }
+
+  # ============================================================================
+  # LEADS
+  # ============================================================================
+  /leads:
+    get:
+      tags: [Leads]
+      summary: Список лидов
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/LeadStatus' }
+        - name: assigned_to
+          in: query
+          schema: { type: string, format: uuid }
+        - name: source
+          in: query
+          schema: { $ref: '#/components/schemas/LeadSource' }
+        - name: priority
+          in: query
+          schema: { $ref: '#/components/schemas/LeadPriority' }
+      responses:
+        '200':
+          description: Список лидов
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Lead' }
+                  total: { type: integer }
+    post:
+      tags: [Leads]
+      summary: Создание лида вручную
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LeadCreate' }
+      responses:
+        '201':
+          description: Лид создан
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lead' }
+
+  /leads/{id}:
+    get:
+      tags: [Leads]
+      summary: Карточка лида
+      parameters: [{ $ref: '#/components/parameters/PathId' }]
+      responses:
+        '200':
+          description: Лид
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lead' }
+
+  /leads/{id}/convert:
+    post:
+      tags: [Leads]
+      summary: Конвертация лида в сделку
+      description: |
+        Создаёт сделку из лида, устанавливает lead.status=converted.
+        При необходимости создаёт задачи (follow-up).
+      parameters: [{ $ref: '#/components/parameters/PathId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                  description: Название сделки
+                amount:
+                  type: number
+                  format: double
+                stage_id:
+                  type: string
+                  format: uuid
+                expected_close_date:
+                  type: string
+                  format: date
+      responses:
+        '201':
+          description: Сделка создана из лида
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Deal' }
+
+  /leads/{id}/reject:
+    post:
+      tags: [Leads]
+      summary: Отклонение лида
+      parameters: [{ $ref: '#/components/parameters/PathId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { $ref: '#/components/schemas/LeadRejectionReason' }
+                note: { type: string }
+      responses:
+        '200':
+          description: Лид отклонён
+
+  # ============================================================================
+  # DEALS
+  # ============================================================================
+  /deals:
+    get:
+      tags: [Deals]
+      summary: Список сделок
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/DealStatus' }
+        - name: stage_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: assigned_to
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Список сделок
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Deal' }
+                  total: { type: integer }
+    post:
+      tags: [Deals]
+      summary: Создание сделки
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DealCreate' }
+      responses:
+        '201':
+          description: Сделка создана
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Deal' }
+
+  /deals/{id}/stage:
+    patch:
+      tags: [Deals]
+      summary: Изменение стадии сделки (drag-and-drop в канбане)
+      parameters: [{ $ref: '#/components/parameters/PathId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [stage_id]
+              properties:
+                stage_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Стадия обновлена
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Deal' }
+
+  /deals/{id}/close:
+    post:
+      tags: [Deals]
+      summary: Закрытие сделки (won/lost)
+      parameters: [{ $ref: '#/components/parameters/PathId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { $ref: '#/components/schemas/DealStatus' }
+                lost_reason: { $ref: '#/components/schemas/DealLostReason' }
+                lost_reason_note: { type: string }
+      responses:
+        '200':
+          description: Сделка закрыта
+
+  # ============================================================================
+  # TASKS
+  # ============================================================================
+  /tasks:
+    get:
+      tags: [Tasks]
+      summary: Список задач
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - name: assignee_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/TaskStatus' }
+        - name: overdue
+          in: query
+          schema: { type: boolean }
+      responses:
+        '200':
+          description: Список задач
+    post:
+      tags: [Tasks]
+      summary: Создание задачи
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaskCreate' }
+      responses:
+        '201':
+          description: Задача создана
+
+  /tasks/{id}:
+    patch:
+      tags: [Tasks]
+      summary: Обновление задачи (смена статуса, и т.д.)
+      parameters: [{ $ref: '#/components/parameters/PathId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaskUpdate' }
+      responses:
+        '200':
+          description: Задача обновлена
+
+  # ============================================================================
+  # FINANCE
+  # ============================================================================
+  /invoices:
+    get:
+      tags: [Finance]
+      summary: Список счетов
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/InvoiceStatus' }
+        - name: customer_id
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Список счетов
+    post:
+      tags: [Finance]
+      summary: Создание счёта
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InvoiceCreate' }
+      responses:
+        '201':
+          description: Счёт создан
+
+  /invoices/{id}/payments:
+    post:
+      tags: [Finance]
+      summary: Регистрация оплаты по счёту
+      parameters: [{ $ref: '#/components/parameters/PathId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, payment_date]
+              properties:
+                amount:
+                  type: number
+                  format: double
+                payment_date:
+                  type: string
+                  format: date
+                method: { $ref: '#/components/schemas/PaymentMethod' }
+                reference:
+                  type: string
+      responses:
+        '201':
+          description: Оплата зарегистрирована
+
+  # ============================================================================
+  # DOCUMENTS
+  # ============================================================================
+  /documents/generate:
+    post:
+      tags: [Documents]
+      summary: Генерация документа (КП, договор, счёт) из шаблона
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [template_id, entity_type, entity_id]
+              properties:
+                template_id:
+                  type: string
+                  format: uuid
+                entity_type:
+                  type: string
+                  enum: [deal, customer, project, invoice]
+                entity_id:
+                  type: string
+                  format: uuid
+                variables:
+                  type: object
+                  description: Дополнительные переменные для шаблона
+      responses:
+        '202':
+          description: Генерация запущена (async)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  document_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    example: generating
+
+  # ============================================================================
+  # CALENDAR
+  # ============================================================================
+  /calendar/events:
+    get:
+      tags: [Calendar]
+      summary: Список событий
+      parameters:
+        - name: start
+          in: query
+          schema: { type: string, format: date-time }
+        - name: end
+          in: query
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Список событий
+    post:
+      tags: [Calendar]
+      summary: Создание события
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CalendarEventCreate' }
+      responses:
+        '201':
+          description: Событие создано
+
+  # ============================================================================
+  # ANALYTICS
+  # ============================================================================
+  /analytics/dashboard:
+    get:
+      tags: [Analytics]
+      summary: Данные для дашборда
+      parameters:
+        - name: period
+          in: query
+          schema: { type: string, example: "month" }
+      responses:
+        '200':
+          description: KPI и метрики
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  kpis:
+                    type: object
+                    properties:
+                      new_leads: { type: integer }
+                      active_deals: { type: integer }
+                      revenue: { type: number }
+                      overdue_tasks: { type: integer }
+                  funnel:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        stage_name: { type: string }
+                        count: { type: integer }
+                        amount: { type: number }
+
+  /analytics/funnel:
+    get:
+      tags: [Analytics]
+      summary: Отчёт по воронке
+      parameters:
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Воронка продаж
+
+  # ============================================================================
+  # PUBLIC (no auth)
+  # ============================================================================
+  /public/leads:
+    post:
+      tags: [Public]
+      security: []
+      summary: Приём заявки с веб-формы сайта
+      description: |
+        Публичный эндпоинт для приёма заявок с сайта.
+        Защита: API key в заголовке, rate limiting, reCAPTCHA, honeypot.
+      parameters:
+        - name: X-API-Key
+          in: header
+          required: true
+          schema: { type: string }
+        - name: X-Site-Domain
+          in: header
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, phone]
+              properties:
+                name:
+                  type: string
+                phone:
+                  type: string
+                  description: Телефон в любом формате
+                email:
+                  type: string
+                  format: email
+                message:
+                  type: string
+                recaptcha_token:
+                  type: string
+                company_url:
+                  type: string
+                  description: Honeypot field (должно быть пустым)
+                utm:
+                  type: object
+                  properties:
+                    source: { type: string }
+                    medium: { type: string }
+                    campaign: { type: string }
+      responses:
+        '201':
+          description: Заявка принята
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: "ok" }
+                  message: { type: string, example: "Заявка принята" }
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  # ============================================================================
+  # WEBHOOKS
+  # ============================================================================
+  /webhooks/telephony:
+    post:
+      tags: [Webhooks]
+      security: []
+      summary: Webhook от провайдера IP-телефонии
+      description: |
+        Принимает события от Mango Office / UIS / Megaplan.
+        Типы событий: call_start, call_end, recording_available.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Payload зависит от провайдера телефонии
+      responses:
+        '200':
+          description: Принято
+
+# ============================================================================
+# COMPONENTS
+# ============================================================================
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    PerPage:
+      name: per_page
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    PathId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    Unauthorized:
+      description: Не авторизован
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Не найдено
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    ValidationError:
+      description: Ошибка валидации
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    TooManyRequests:
+      description: Превышен лимит запросов
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: { type: object }
+
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        first_name: { type: string }
+        last_name: { type: string }
+        position: { type: string }
+        role: { type: string }
+        is_active: { type: boolean }
+
+    CustomerStatus:
+      type: string
+      enum: [active, inactive, vip, blacklist]
+
+    Customer:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, enum: [individual, company] }
+        name: { type: string }
+        full_legal_name: { type: string }
+        inn: { type: string }
+        status: { $ref: '#/components/schemas/CustomerStatus' }
+        source: { $ref: '#/components/schemas/LeadSource' }
+        responsible_manager_id: { type: string, format: uuid }
+        tags: { type: array, items: { type: string } }
+        total_revenue: { type: number }
+        deals_count: { type: integer }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    CustomerCreate:
+      type: object
+      required: [name]
+      properties:
+        type: { type: string, enum: [individual, company] }
+        name: { type: string }
+        inn: { type: string }
+        industry: { type: string }
+        contacts:
+          type: array
+          items:
+            type: object
+            properties:
+              first_name: { type: string }
+              phone: { type: string }
+              email: { type: string }
+        tags: { type: array, items: { type: string } }
+
+    CustomerUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        inn: { type: string }
+        status: { $ref: '#/components/schemas/CustomerStatus' }
+        responsible_manager_id: { type: string, format: uuid }
+
+    LeadSource:
+      type: string
+      enum: [telegram, email, phone, web_form, manual, referral]
+
+    LeadStatus:
+      type: string
+      enum: [new, in_progress, qualified, converted, rejected, duplicate]
+
+    LeadPriority:
+      type: string
+      enum: [low, medium, high, urgent]
+
+    LeadRejectionReason:
+      type: string
+      enum: [spam, invalid, duplicate, not_target, other]
+
+    Lead:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        customer_id: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: string }
+        source: { $ref: '#/components/schemas/LeadSource' }
+        status: { $ref: '#/components/schemas/LeadStatus' }
+        priority: { $ref: '#/components/schemas/LeadPriority' }
+        assigned_to: { type: string, format: uuid }
+        deal_id: { type: string, format: uuid }
+        score: { type: integer }
+        sla_deadline: { type: string, format: date-time }
+        responded_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+
+    LeadCreate:
+      type: object
+      required: [customer_id, title, source]
+      properties:
+        customer_id: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: string }
+        source: { $ref: '#/components/schemas/LeadSource' }
+        priority: { $ref: '#/components/schemas/LeadPriority' }
+        assigned_to: { type: string, format: uuid }
+
+    DealStatus:
+      type: string
+      enum: [open, won, lost]
+
+    DealLostReason:
+      type: string
+      enum: [price, competitor, no_decision, no_response, other]
+
+    Deal:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        customer_id: { type: string, format: uuid }
+        lead_id: { type: string, format: uuid }
+        title: { type: string }
+        amount: { type: number, format: double }
+        currency: { type: string, example: "RUB" }
+        stage_id: { type: string, format: uuid }
+        stage_name: { type: string }
+        status: { $ref: '#/components/schemas/DealStatus' }
+        probability: { type: integer }
+        expected_close_date: { type: string, format: date }
+        assigned_to: { type: string, format: uuid }
+        project_id: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+
+    DealCreate:
+      type: object
+      required: [customer_id, title, stage_id]
+      properties:
+        customer_id: { type: string, format: uuid }
+        lead_id: { type: string, format: uuid }
+        title: { type: string }
+        amount: { type: number, format: double }
+        stage_id: { type: string, format: uuid }
+        expected_close_date: { type: string, format: date }
+        assigned_to: { type: string, format: uuid }
+
+    TaskStatus:
+      type: string
+      enum: [pending, in_progress, review, done, cancelled]
+
+    TaskType:
+      type: string
+      enum: [call, email, meeting, document, follow_up, custom]
+
+    TaskCreate:
+      type: object
+      required: [title, assignee_id, due_date]
+      properties:
+        title: { type: string }
+        description: { type: string }
+        type: { $ref: '#/components/schemas/TaskType' }
+        priority: { $ref: '#/components/schemas/LeadPriority' }
+        assignee_id: { type: string, format: uuid }
+        due_date: { type: string, format: date-time }
+        deal_id: { type: string, format: uuid }
+        customer_id: { type: string, format: uuid }
+        lead_id: { type: string, format: uuid }
+
+    TaskUpdate:
+      type: object
+      properties:
+        status: { $ref: '#/components/schemas/TaskStatus' }
+        due_date: { type: string, format: date-time }
+        assignee_id: { type: string, format: uuid }
+
+    InvoiceStatus:
+      type: string
+      enum: [draft, sent, partially_paid, paid, overdue, cancelled]
+
+    PaymentMethod:
+      type: string
+      enum: [bank_transfer, card, cash]
+
+    InvoiceCreate:
+      type: object
+      required: [customer_id, items, due_date]
+      properties:
+        customer_id: { type: string, format: uuid }
+        deal_id: { type: string, format: uuid }
+        due_date: { type: string, format: date }
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              quantity: { type: number }
+              unit_price: { type: number }
+              vat_rate: { type: number }
+
+    InteractionType:
+      type: string
+      enum: [message, call, email, note, task_result, status_change]
+
+    Interaction:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        interaction_type: { $ref: '#/components/schemas/InteractionType' }
+        channel: { type: string }
+        direction: { type: string, enum: [inbound, outbound] }
+        subject: { type: string }
+        body_text: { type: string }
+        status: { type: string }
+        duration: { type: integer }
+        recording_url: { type: string }
+        created_at: { type: string, format: date-time }
+
+    CalendarEventCreate:
+      type: object
+      required: [title, start_at, end_at]
+      properties:
+        title: { type: string }
+        description: { type: string }
+        type: { type: string, enum: [meeting, call, demo, reminder, other] }
+        start_at: { type: string, format: date-time }
+        end_at: { type: string, format: date-time }
+        location: { type: string }
+        customer_id: { type: string, format: uuid }
+        deal_id: { type: string, format: uuid }
+        participants:
+          type: array
+          items: { type: string, format: uuid }

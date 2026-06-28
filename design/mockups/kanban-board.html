@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRM — Воронка продаж (Канбан)</title>
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --primary-hover: #4338CA;
+            --success: #10B981;
+            --warning: #F59E0B;
+            --danger: #EF4444;
+            --info: #3B82F6;
+            --purple: #8B5CF6;
+
+            --bg-main: #0F0B2E;
+            --bg-sidebar: #1A1147;
+            --bg-card: #1E1B4B;
+            --bg-card-hover: #252161;
+            --bg-column: #15102E;
+            --bg-input: #2D2A6E;
+
+            --text-primary: #F3F4F6;
+            --text-secondary: #9CA3AF;
+            --text-muted: #6B7280;
+
+            --border: #312E81;
+            --border-light: #4338CA;
+
+            --radius: 12px;
+            --radius-sm: 8px;
+            --transition: all 0.2s ease;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg-main);
+            color: var(--text-primary);
+            display: flex;
+            min-height: 100vh;
+            font-size: 14px;
+        }
+
+        /* Sidebar (compact) */
+        .sidebar {
+            width: 64px;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 16px 0;
+            gap: 8px;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            flex-shrink: 0;
+        }
+        .sidebar-logo {
+            width: 40px; height: 40px;
+            background: linear-gradient(135deg, var(--primary), var(--purple));
+            border-radius: var(--radius-sm);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; font-weight: 700; color: white;
+            margin-bottom: 16px;
+        }
+        .sidebar-icon {
+            width: 44px; height: 44px;
+            border-radius: var(--radius-sm);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: var(--transition);
+            font-size: 18px; color: var(--text-secondary);
+            position: relative;
+        }
+        .sidebar-icon:hover { background: var(--bg-card); color: var(--text-primary); }
+        .sidebar-icon.active { background: var(--primary); color: white; }
+        .sidebar-icon .badge-mini {
+            position: absolute; top: 6px; right: 6px;
+            background: var(--danger); color: white;
+            font-size: 9px; font-weight: 700;
+            padding: 1px 5px; border-radius: 8px;
+        }
+
+        /* Main */
+        .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+        .header {
+            background: var(--bg-sidebar);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 24px;
+            display: flex; align-items: center; gap: 16px;
+        }
+
+        .header-title { font-size: 20px; font-weight: 700; }
+
+        .pipeline-select {
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); padding: 8px 12px;
+            color: var(--text-primary); font-size: 14px; cursor: pointer;
+        }
+
+        .view-toggle {
+            display: flex; background: var(--bg-input);
+            border-radius: var(--radius-sm); padding: 3px;
+        }
+        .view-btn {
+            padding: 7px 14px; border-radius: 6px; cursor: pointer;
+            font-size: 13px; color: var(--text-secondary);
+            transition: var(--transition); border: none;
+            background: transparent;
+        }
+        .view-btn.active { background: var(--primary); color: white; }
+
+        .header-actions { margin-left: auto; display: flex; gap: 10px; }
+
+        .btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 14px; border-radius: var(--radius-sm);
+            font-size: 13px; font-weight: 500; cursor: pointer;
+            border: none; transition: var(--transition);
+        }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-ghost {
+            background: var(--bg-card); color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+        .btn-ghost:hover { color: var(--text-primary); }
+
+        /* Kanban Board */
+        .board {
+            flex: 1;
+            display: flex;
+            gap: 16px;
+            padding: 20px 24px;
+            overflow-x: auto;
+            min-height: 0;
+        }
+
+        .column {
+            min-width: 280px;
+            width: 280px;
+            background: var(--bg-column);
+            border-radius: var(--radius);
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 140px);
+        }
+
+        .column-header {
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .column-title {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 13px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.05em;
+        }
+
+        .column-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+        }
+
+        .column-count {
+            background: var(--bg-input);
+            padding: 2px 8px; border-radius: 10px;
+            font-size: 11px; color: var(--text-secondary);
+        }
+
+        .column-sum {
+            font-size: 11px; color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .column-body {
+            flex: 1; overflow-y: auto;
+            padding: 12px;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+
+        .column-footer {
+            padding: 10px 12px;
+            border-top: 1px solid var(--border);
+        }
+
+        .add-card-btn {
+            width: 100%; padding: 8px;
+            background: transparent; border: 1px dashed var(--border);
+            border-radius: var(--radius-sm); color: var(--text-muted);
+            cursor: pointer; transition: var(--transition);
+            font-size: 13px;
+        }
+        .add-card-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: rgba(79, 70, 229, 0.05);
+        }
+
+        /* Deal Card */
+        .deal-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 14px;
+            cursor: grab;
+            transition: var(--transition);
+        }
+        .deal-card:hover {
+            border-color: var(--border-light);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            transform: translateY(-2px);
+        }
+        .deal-card.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        .deal-card-header {
+            display: flex; justify-content: space-between;
+            align-items: flex-start; margin-bottom: 8px;
+        }
+
+        .deal-amount {
+            font-size: 18px; font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .deal-probability {
+            font-size: 11px; padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .deal-title {
+            font-size: 14px; font-weight: 500;
+            margin-bottom: 10px; line-height: 1.4;
+        }
+
+        .deal-customer {
+            font-size: 12px; color: var(--text-secondary);
+            margin-bottom: 10px;
+        }
+
+        .deal-footer {
+            display: flex; align-items: center;
+            justify-content: space-between;
+            padding-top: 10px;
+            border-top: 1px solid var(--border);
+        }
+
+        .deal-meta {
+            display: flex; gap: 8px; font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .deal-meta-item {
+            display: flex; align-items: center; gap: 3px;
+        }
+
+        .avatar {
+            width: 24px; height: 24px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px; font-weight: 600; color: white;
+        }
+
+        .badge {
+            display: inline-flex; align-items: center;
+            padding: 2px 7px; border-radius: 4px;
+            font-size: 11px; font-weight: 600;
+        }
+        .badge-hot { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+        .badge-warm { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+        .badge-cold { background: rgba(59, 130, 246, 0.15); color: var(--info); }
+        .badge-vip { background: rgba(139, 92, 246, 0.15); color: var(--purple); }
+
+        .priority-tag {
+            display: inline-flex; align-items: center; gap: 3px;
+            font-size: 11px;
+        }
+        .priority-tag::before {
+            content: ''; width: 6px; height: 6px; border-radius: 50%;
+        }
+        .priority-urgent::before { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+        .priority-high::before { background: var(--warning); }
+        .priority-medium::before { background: var(--info); }
+
+        /* Column colors */
+        .col-new .column-dot { background: var(--info); }
+        .col-qual .column-dot { background: var(--purple); }
+        .col-quote .column-dot { background: #06B6D4; }
+        .col-negot .column-dot { background: var(--warning); }
+        .col-contract .column-dot { background: #EC4899; }
+        .col-won .column-dot { background: var(--success); }
+    </style>
+</head>
+<body>
+
+    <!-- Compact Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-logo">C</div>
+        <div class="sidebar-icon">📊</div>
+        <div class="sidebar-icon">📥<span class="badge-mini">8</span></div>
+        <div class="sidebar-icon active">🎯</div>
+        <div class="sidebar-icon">👥</div>
+        <div class="sidebar-icon">✅<span class="badge-mini">5</span></div>
+        <div class="sidebar-icon">📅</div>
+        <div class="sidebar-icon">💰</div>
+        <div class="sidebar-icon">📄</div>
+        <div class="sidebar-icon">📈</div>
+        <div class="sidebar-icon" style="margin-top:auto;">⚙️</div>
+    </aside>
+
+    <!-- Main -->
+    <div class="main">
+        <header class="header">
+            <span class="header-title">Сделки</span>
+            <select class="pipeline-select">
+                <option>Основная воронка</option>
+                <option>Корпоративные продажи</option>
+                <option>Ретейл</option>
+            </select>
+            <div class="view-toggle">
+                <button class="view-btn">📋 Список</button>
+                <button class="view-btn active">📐 Доска</button>
+                <button class="view-btn">📊 Аналитика</button>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-ghost">🔍 Фильтр</button>
+                <button class="btn btn-primary">+ Новая сделка</button>
+            </div>
+        </header>
+
+        <!-- Kanban Board -->
+        <div class="board">
+
+            <!-- Column: New -->
+            <div class="column col-new">
+                <div class="column-header">
+                    <div>
+                        <div class="column-title">
+                            <span class="column-dot"></span>
+                            <span>Новый</span>
+                        </div>
+                        <div class="column-sum">2 × ₽0.7M</div>
+                    </div>
+                    <span class="column-count">2</span>
+                </div>
+                <div class="column-body">
+                    <div class="deal-card" draggable="true">
+                        <div class="deal-card-header">
+                            <span class="deal-amount">₽500K</span>
+                            <span class="badge badge-hot">🔥 Hot</span>
+                        </div>
+                        <div class="deal-title">Разработка CRM-системы</div>
+                        <div class="deal-customer">ООО «Ромашка»</div>
+                        <div class="deal-footer">
+                            <div class="deal-meta">
+                                <span class="deal-meta-item">💬 3</span>
+                                <span class="deal-meta-item">📞 1</span>
+                                <span class="priority-tag priority-urgent">Срочно</span>
+                            </div>
+                            <div class="avatar" style="background: linear-gradient(135deg, #6366F1, #8B5CF6);">ИП</div>
+                        </div>
+                    </div>
+                    <div class="deal-card" draggable="true">
+                        <div class="deal-card-header">
+                            <span class="deal-amount">₽200K</span>
+                            <span class="badge badge-warm">Warm</span>
+                        </div>
+                        <div class="deal-title">Интеграция Telegram-бота</div>
+                        <div class="deal-customer">ООО «Мечта»</div>
+                        <div class="deal-footer">
+                            <div class="deal-meta">
+                                <span class="deal-meta-item">💬 1</span>
+                                <span class="priority-tag priority-medium">Средне</span>
+                            </div>
+                            <div class="avatar" style="background: linear-gradient(135deg, #F59E0B, #EF4444);">АС</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="column-footer">
+                    <button class="add-card-btn">+ Добавить сделку</button>
+                </div>
+            </div>
+
+            <!-- Column: Qualification -->
+            <div class="column col-qual">
+                <div class="column-header">
+                    <div>
+                        <div class="column-title">
+                            <span class="column-dot"></span>
+                            <span>Квалификация</span>
+                        </div>
+                        <div class="column-sum">2 × ₽0.6M</div>
+                    </div>
+                    <span class="column-count">2</span>
+                </div>
+                <div class="column-body">
+                    <div class="deal-card" draggable="true">
+                        <div class="deal-card-header">
+                            <span class="deal-amount">₽150K</span>
+                            <span class="badge badge-cold">Cold</span>
+                        </div>
+                        <div class="deal-title">Настройка Email-маркетинга</div>
+                        <div class="deal-customer">ИП Петров А.В.</div>
+                        <div class="deal-footer">
+                            <div class="deal-meta">
+                                <span class="deal-meta-item">✉️ 2</span>
+                                <span class="priority-tag priority-medium">Средне</span>
+                            </div>
+                            <div class="avatar" style="background: linear-gradient(135deg, #10B981, #06B6D4);">АС</div>
+                        </div>
+                    </div>
+                    <div class="deal-card" draggable="true">
+                        <div class="deal-card-header">
+                            <span class="deal-amount">₽450K</span>
+                            <span class="badge badge-warm">Warm</span>
+                        </div>
+                        <div class="deal-title">Внедрение ERP-системы</div>
+                        <div class="deal-customer">ООО «Логистик-Плюс»</div>
+                        <div class="deal-footer">
+                            <div class="deal-meta">
+                                <span class="deal-meta-item">📞 2</span>
+                                <span class="priority-tag priority-high">Высокий</span>
+                            </div>
+                            <div class="avatar" style="background: linear-gradient(135deg, #8B5CF6, #EC4899);">ИС</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="column-footer">
+                    <button class="add-card-btn">+ Добавить сделку</button>
+                </div>
+            </div>
+
+            <!-- Column: Quote Sent -->
+            <div class="column col-quote">
+                <div class="column-header">
+                    <div>
+                        <div class="column-title">
+                            <span class="column-dot"></span>
+                            <span>КП отправлено</span>
+                        </div>
+                        <div class="column-sum">1 × ₽1.2M</div>
+                    </div>
+                    <span class="column-count">1</span>
+                </div>
+                <div class="column-body">
+                    <div class="deal-card" draggable="true">
+                        <div class="deal-card-header">
+                            <span class="deal-amount">₽1.2M</span>
+                            <span class="badge badge-vip">VIP</span>
+                        </div>
+                        <div class="deal-title">Комплексная автоматизация бизнеса</div>
+                        <div class="deal-customer">ООО «ТехноЛогик»</div>
+                        <div class="deal-footer">
+                            <div class="deal-meta">
+                                <span class="deal-meta-item">📄 КП v2</span>
+                                <span class="deal-meta-item">✉️ 5</span>
+                            </div>
+                            <div class="avatar" style="background: linear-gradient(135deg, #3B82F6, #8B5CF6);">ИС</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="column-footer">
+                    <button class="add-card-btn">+ Добавить сделку</button>
+                </div>
+            </div>
+
+            <!-- Column: Negotiation -->
+            <div class="column col-negot">
+                <div class="column-header">
+                    <div>
+                        <div class="column-title">
+                            <span class="column-dot"></span>
+                            <span>Переговоры</span>
+                        </div>
+                        <div class="column-sum">1 × ₽0.8M</div>
+                    </div>
+                    <span class="column-count">1</span>
+                </div>
+                <div class="column-body">
+                    <div class="deal-card" draggable="true">
+                        <div class="deal-card-header">
+                            <span class="deal-amount">₽800K</span>
+                            <span class="badge badge-hot">🔥 Hot</span>
+                        </div>
+                        <div class="deal-title">Разработка мобильного приложения</div>
+                        <div class="deal-customer">ИП Иванова О.С.</div>
+                        <div class="deal-footer">
+                            <div class="deal-meta">
+                                <span class="deal-meta-item">📅 Встреча 14:00</span>
+                                <span class="priority-tag priority-urgent">Срочно</span>
+                            </div>
+                            <div class="avatar" style="background: linear-gradient(135deg, #EC4899, #F59E0B);">ОК</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="column-footer">
+                    <button class="add-card-btn">+ Добавить сделку</button>
+                </div>
+            </div>
+
+            <!-- Column: Contract -->
+            <div class="column col-contract">
+                <div class="column-header">
+                    <div>
+                        <div class="column-title">
+                            <span class="column-dot"></span>
+                            <span>Договор</span>
+                        </div>
+                        <div class="column-sum">2 × ₽0.9M</div>
+                    </div>
+                    <span class="column-count">2</span>
+                </div>
+                <div class="column-body">
+                    <div class="deal-card" draggable="true">
+                        <div class="deal-card-header">
+                            <span class="deal-amount">₽300K</span>
+                            <span class="badge badge-warm">Warm</span>
+                        </div>
+                        <div class="deal-title">SEO-продвижение сайта</div>
+                        <div class="deal-customer">ООО «Сидоров и партнёры»</div>
+                        <div class="deal-footer">
+                            <div class="deal-meta">
+                                <span class="deal-meta-item">📄 Договор</span>
+                                <span class="priority-tag priority-high">Высокий</span>
+                            </div>
+                            <div class="avatar" style="background: linear-gradient(135deg, #06B6D4, #10B981);">ПИ</div>
+                        </div>
+                    </div>
+                    <div class="deal-card" draggable="true">
+                        <div class="deal-card-header">
+                            <span class="deal-amount">₽600K</span>
+                            <span class="badge badge-warm">Warm</span>
+                        </div>
+                        <div class="deal-title">Миграция инфраструктуры в облако</div>
+                        <div class="deal-customer">АО «Альфа-Консалтинг»</div>
+                        <div class="deal-footer">
+                            <div class="deal-meta">
+                                <span class="deal-meta-item">📄 Согласование</span>
+                                <span class="priority-tag priority-medium">Средне</span>
+                            </div>
+                            <div class="avatar" style="background: linear-gradient(135deg, #F59E0B, #EF4444);">ИП</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="column-footer">
+                    <button class="add-card-btn">+ Добавить сделку</button>
+                </div>
+            </div>
+
+            <!-- Column: Won -->
+            <div class="column col-won">
+                <div class="column-header">
+                    <div>
+                        <div class="column-title">
+                            <span class="column-dot"></span>
+                            <span>Выиграно ✅</span>
+                        </div>
+                        <div class="column-sum">1 × ₽0.5M (за неделю)</div>
+                    </div>
+                    <span class="column-count">1</span>
+                </div>
+                <div class="column-body">
+                    <div class="deal-card" draggable="true" style="border-color: var(--success); border-width: 1px;">
+                        <div class="deal-card-header">
+                            <span class="deal-amount" style="color: var(--success);">₽500K ✅</span>
+                            <span class="badge badge-vip">VIP</span>
+                        </div>
+                        <div class="deal-title">Поддержка серверов 24/7</div>
+                        <div class="deal-customer">ООО «Гамма-Трейд»</div>
+                        <div class="deal-footer">
+                            <div class="deal-meta">
+                                <span class="deal-meta-item">💰 Счёт отправлен</span>
+                                <span class="deal-meta-item" style="color:var(--success)">Закрыта 27 июн</span>
+                            </div>
+                            <div class="avatar" style="background: linear-gradient(135deg, #10B981, #06B6D4);">ИС</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="column-footer">
+                    <button class="add-card-btn">+ Добавить сделку</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // Drag and drop for kanban cards
+        document.querySelectorAll('.deal-card').forEach(card => {
+            card.addEventListener('dragstart', (e) => {
+                card.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            });
+            card.addEventListener('dragend', () => {
+                card.classList.remove('dragging');
+            });
+        });
+
+        document.querySelectorAll('.column-body').forEach(body => {
+            const column = body.closest('.column');
+
+            column.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                column.style.borderColor = 'var(--primary)';
+            });
+
+            column.addEventListener('dragleave', () => {
+                column.style.borderColor = '';
+            });
+
+            column.addEventListener('drop', (e) => {
+                e.preventDefault();
+                column.style.borderColor = '';
+                const dragging = document.querySelector('.dragging');
+                if (dragging) {
+                    body.appendChild(dragging);
+                    // Update count
+                    const countEl = column.querySelector('.column-count');
+                    countEl.textContent = body.children.length;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
