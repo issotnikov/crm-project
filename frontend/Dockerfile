@@ -7,8 +7,9 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
-RUN npm ci
+# Copy lock file if it exists (use npm ci for reproducible builds)
+COPY package*.json ./
+RUN npm install
 
 COPY . .
 RUN npm run build

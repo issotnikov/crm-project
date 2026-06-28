@@ -27,7 +27,6 @@ python-telegram-bot>=21.6
 
 # Email
 aiosmtplib>=3.0.0
-email-parser>=0.1.0
 
 # Document generation
 openpyxl>=3.1.0

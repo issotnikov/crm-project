@@ -12,17 +12,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install LibreOffice for PDF conversion (document generation)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libreoffice-writer \
+    libreoffice-writer-nogui \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy requirements and install
+# Copy requirements and install (separate layer for caching)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
-COPY . .
+# Copy application code (only the app package, not tests/.git/etc)
+COPY app/ ./app/
 
 # Create non-root user
 RUN useradd -m -u 1000 crm && chown -R crm:crm /app

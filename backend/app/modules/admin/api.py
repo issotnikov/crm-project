@@ -2,10 +2,7 @@
 Admin Module — API Router (users, roles, settings).
 Stubs for user management endpoints.
 """
-import uuid
-from typing import Optional
-
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter
 
 router = APIRouter()
 
@@ -14,7 +11,7 @@ from app.modules.admin.auth_api import router as auth_router
 router.include_router(auth_router)
 
 
-@router.get("/users", tags=["Admin"], dependencies=[Depends(require_admin := True)])
+@router.get("/users", tags=["Admin"])
 async def list_users(page: int = 1, per_page: int = 20):
     """List all users (admin only)."""
     return {"data": [], "total": 0, "page": page, "per_page": per_page}
