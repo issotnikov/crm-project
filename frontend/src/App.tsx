@@ -1,55 +1,150 @@
 import { useState, useEffect } from 'react'
+import { api, getToken, clearTokens, getUser } from './lib/api'
+import { LoginPage } from './pages/LoginPage'
+import { LeadsPage } from './pages/LeadsPage'
+import {
+  DealsPage, CustomersPage, TasksPage,
+  CalendarPage, FinancePage, DocumentsPage, AnalyticsPage,
+} from './pages/OtherPages'
 
-const API_URL = import.meta.env.VITE_API_URL || '/api/v1'
+// ── Types ──────────────────────────────────────────────────────
+type PageKey = 'dashboard' | 'leads' | 'deals' | 'customers' | 'tasks' | 'calendar' | 'finance' | 'documents' | 'analytics'
 
-// ── Types ─────────────────────────────────────────────────────────────
 interface DashboardData {
-  kpis: {
-    new_leads: number
-    active_deals: number
-    revenue_month: number
-    overdue_tasks: number
-  }
+  kpis: { new_leads: number; active_deals: number; revenue_month: number; overdue_tasks: number }
   funnel: { stage_name: string; count: number; amount: number }[]
   revenue_chart: { month: string; amount: number }[]
 }
 
-const EMPTY: DashboardData = {
+const EMPTY_DASHBOARD: DashboardData = {
   kpis: { new_leads: 0, active_deals: 0, revenue_month: 0, overdue_tasks: 0 },
   funnel: [],
   revenue_chart: [],
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────
+const NAV_ITEMS: { key: PageKey; icon: string; label: string; badge?: number }[] = [
+  { key: 'dashboard', icon: '📊', label: 'Дашборд' },
+  { key: 'leads', icon: '📥', label: 'Заявки', badge: 8 },
+  { key: 'deals', icon: '🎯', label: 'Сделки' },
+  { key: 'customers', icon: '👥', label: 'Клиенты' },
+  { key: 'tasks', icon: '✅', label: 'Задачи', badge: 5 },
+  { key: 'calendar', icon: '📅', label: 'Календарь' },
+  { key: 'finance', icon: '💰', label: 'Финансы' },
+  { key: 'documents', icon: '📄', label: 'Документы' },
+  { key: 'analytics', icon: '📈', label: 'Аналитика' },
+]
+
+// ── Helpers ────────────────────────────────────────────────────
 function formatRub(n: number): string {
   if (n >= 1_000_000) return `₽${(n / 1_000_000).toFixed(1)}M`
   if (n >= 1_000) return `₽${(n / 1_000).toFixed(0)}K`
   return `₽${n}`
 }
 
-// ── Component ─────────────────────────────────────────────────────────
-function App() {
-  const [data, setData] = useState<DashboardData>(EMPTY)
+// ── Sidebar ────────────────────────────────────────────────────
+function Sidebar({ activePage, onNavigate, user, onLogout }: {
+  activePage: PageKey
+  onNavigate: (page: PageKey) => void
+  user: { name: string; email: string; role: string }
+  onLogout: () => void
+}) {
+  return (
+    <aside className="w-60 min-h-screen bg-[#1A1147] border-r border-[#312E81] flex flex-col">
+      {/* Logo */}
+      <div className="p-5 flex items-center gap-2 border-b border-[#312E81]">
+        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center font-bold text-white">
+          C
+        </div>
+        <span className="font-bold text-base">CRM System</span>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 p-3 space-y-1">
+        {NAV_ITEMS.map((item) => (
+          <button
+            key={item.key}
+            onClick={() => onNavigate(item.key)}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm ${
+              activePage === item.key
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                : 'text-gray-400 hover:bg-[#1E1B4B] hover:text-white'
+            }`}
+          >
+            <span className="text-lg">{item.icon}</span>
+            <span>{item.label}</span>
+            {item.badge && (
+              <span className={`ml-auto text-xs font-semibold px-1.5 py-0.5 rounded-full ${
+                activePage === item.key ? 'bg-white/20' : 'bg-red-500 text-white'
+              }`}>
+                {item.badge}
+              </span>
+            )}
+          </button>
+        ))}
+      </nav>
+
+      {/* User */}
+      <div className="p-3 border-t border-[#312E81]">
+        <div className="flex items-center gap-2.5 p-2 rounded-lg">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+            {user.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium truncate">{user.name}</div>
+            <div className="text-xs text-gray-500 truncate">{user.role}</div>
+          </div>
+          <button
+            onClick={onLogout}
+            className="text-gray-500 hover:text-red-400 transition-colors p-1"
+            title="Выйти"
+          >
+            ⏻
+          </button>
+        </div>
+      </div>
+    </aside>
+  )
+}
+
+// ── Top bar ────────────────────────────────────────────────────
+function TopBar({ title, subtitle }: { title: string; subtitle: string }) {
+  return (
+    <div className="flex items-center gap-4 mb-6">
+      <div className="flex-1 max-w-md relative">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">🔍</span>
+        <input
+          type="text"
+          placeholder="Поиск клиентов, сделок, задач..."
+          className="w-full bg-[#2D2A6E] border border-[#312E81] rounded-lg pl-10 pr-16 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+        />
+        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs bg-[#1E1B4B] border border-[#312E81] rounded px-1.5 py-0.5 text-gray-500">
+          ⌘K
+        </span>
+      </div>
+      <button className="w-9 h-9 rounded-lg bg-[#1E1B4B] border border-[#312E81] flex items-center justify-center text-gray-400 hover:text-white transition-colors relative">
+        🔔
+        <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
+      </button>
+      <div className="text-xs text-gray-500">
+        {new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}
+      </div>
+    </div>
+  )
+}
+
+// ── Dashboard page ─────────────────────────────────────────────
+function DashboardPage() {
+  const [data, setData] = useState<DashboardData>(EMPTY_DASHBOARD)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [apiConnected, setApiConnected] = useState(true)
 
   useEffect(() => {
-    fetch(`${API_URL}/analytics/dashboard`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json()
-      })
-      .then((d) => setData(d))
-      .catch((e) => {
-        // Fallback to mock data if backend is not running
-        setError(e.message)
+    api.getDashboard()
+      .then((d) => { setData(d); setApiConnected(true) })
+      .catch(() => {
+        setApiConnected(false)
         setData({
-          kpis: {
-            new_leads: 142,
-            active_deals: 24,
-            revenue_month: 4_200_000,
-            overdue_tasks: 3,
-          },
+          kpis: { new_leads: 142, active_deals: 24, revenue_month: 4_200_000, overdue_tasks: 3 },
           funnel: [
             { stage_name: 'Новый лид', count: 142, amount: 0 },
             { stage_name: 'Квалификация', count: 95, amount: 8_500_000 },
@@ -75,123 +170,143 @@ function App() {
   const maxRevenue = Math.max(...data.revenue_chart.map((r) => r.amount), 1)
 
   return (
+    <div>
+      <h1 className="text-2xl font-bold mb-1">Доброе утро! 👋</h1>
+      <p className="text-gray-400 text-sm mb-6">
+        {loading ? 'Загрузка...' : apiConnected ? 'Данные из API' : 'Демо-данные (backend не подключён)'}
+      </p>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-4 gap-5 mb-7">
+        {[
+          { label: 'Новые заявки', value: data.kpis.new_leads, icon: '📥' },
+          { label: 'Активные сделки', value: data.kpis.active_deals, icon: '🎯' },
+          { label: 'Выручка (мес)', value: formatRub(data.kpis.revenue_month), icon: '💰' },
+          { label: 'Просрочено задач', value: data.kpis.overdue_tasks, icon: '✅' },
+        ].map((kpi) => (
+          <div key={kpi.label} className="bg-[#1E1B4B] border border-[#312E81] rounded-xl p-5 hover:border-indigo-700 transition-colors">
+            <div className="flex justify-between items-start mb-3">
+              <span className="text-sm text-gray-400 font-medium">{kpi.label}</span>
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center text-lg bg-blue-500/15">{kpi.icon}</div>
+            </div>
+            <div className="text-3xl font-bold tabular-nums">{kpi.value}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-2 gap-5">
+        {/* Funnel */}
+        <div className="bg-[#1E1B4B] border border-[#312E81] rounded-xl p-5">
+          <h2 className="text-base font-semibold mb-4">Воронка продаж</h2>
+          <div className="space-y-2">
+            {data.funnel.map((stage, i) => (
+              <div key={stage.stage_name} className="flex items-center gap-3">
+                <span className="w-32 text-sm text-gray-400 flex-shrink-0">{stage.stage_name}</span>
+                <div className="flex-1 h-7 bg-[#2D2A6E] rounded-md overflow-hidden">
+                  <div
+                    className="h-full rounded-md flex items-center px-3 text-xs font-semibold text-white"
+                    style={{
+                      width: `${(stage.count / maxFunnel) * 100}%`,
+                      background: `linear-gradient(90deg, hsl(${250 + i * 15}, 80%, 60%), hsl(${250 + i * 15 + 30}, 80%, 65%))`,
+                    }}
+                  >
+                    {stage.count}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Revenue */}
+        <div className="bg-[#1E1B4B] border border-[#312E81] rounded-xl p-5">
+          <h2 className="text-base font-semibold mb-4">Выручка за 6 месяцев</h2>
+          <div className="flex items-end gap-3 h-40">
+            {data.revenue_chart.map((r, i) => (
+              <div key={r.month} className="flex-1 flex flex-col items-center gap-2">
+                <div
+                  className={`w-full max-w-10 rounded-t-md transition-all hover:brightness-125 cursor-pointer ${
+                    i === data.revenue_chart.length - 1
+                      ? 'bg-gradient-to-b from-emerald-500 to-emerald-600'
+                      : 'bg-gradient-to-b from-indigo-500 to-indigo-700'
+                  }`}
+                  style={{ height: `${(r.amount / maxRevenue) * 100}%` }}
+                  title={formatRub(r.amount)}
+                />
+                <span className={`text-xs ${i === data.revenue_chart.length - 1 ? 'text-emerald-400 font-semibold' : 'text-gray-500'}`}>
+                  {r.month}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Main App ───────────────────────────────────────────────────
+function App() {
+  const [authed, setAuthed] = useState(false)
+  const [page, setPage] = useState<PageKey>('dashboard')
+
+  useEffect(() => {
+    // Check if user has a token
+    if (getToken()) {
+      setAuthed(true)
+    }
+  }, [])
+
+  const handleLogin = () => setAuthed(true)
+
+  const handleLogout = () => {
+    clearTokens()
+    setAuthed(false)
+    setPage('dashboard')
+  }
+
+  // Show login page if not authenticated
+  if (!authed) {
+    return <LoginPage onLogin={handleLogin} />
+  }
+
+  const user = getUser() || { name: 'Пользователь', email: '', role: 'user' }
+  const currentNav = NAV_ITEMS.find((n) => n.key === page) || NAV_ITEMS[0]
+  const subtitles: Record<PageKey, string> = {
+    dashboard: 'Сводка за день',
+    leads: 'Входящие заявки из всех каналов',
+    deals: 'Воронка продаж',
+    customers: 'База клиентов',
+    tasks: 'Задачи и контроль',
+    calendar: 'Календарь событий',
+    finance: 'Счета и оплаты',
+    documents: 'Документы и шаблоны',
+    analytics: 'Отчёты и аналитика',
+  }
+
+  return (
     <div className="min-h-screen bg-[#0F0B2E] text-gray-100">
       <div className="flex">
-        {/* Sidebar */}
-        <aside className="w-60 min-h-screen bg-[#1A1147] border-r border-[#312E81] flex flex-col">
-          <div className="p-5 flex items-center gap-2 border-b border-[#312E81]">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center font-bold text-white">
-              C
-            </div>
-            <span className="font-bold text-base">CRM System</span>
-          </div>
-          <nav className="flex-1 p-3 space-y-1">
-            {[
-              { icon: '📊', label: 'Дашборд', active: true },
-              { icon: '📥', label: 'Заявки', badge: 8 },
-              { icon: '🎯', label: 'Сделки' },
-              { icon: '👥', label: 'Клиенты' },
-              { icon: '✅', label: 'Задачи', badge: 5 },
-              { icon: '📅', label: 'Календарь' },
-              { icon: '💰', label: 'Финансы' },
-              { icon: '📄', label: 'Документы' },
-              { icon: '📈', label: 'Аналитика' },
-            ].map((item) => (
-              <div
-                key={item.label}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors text-sm ${
-                  item.active
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                    : 'text-gray-400 hover:bg-[#1E1B4B] hover:text-white'
-                }`}
-              >
-                <span className="text-lg">{item.icon}</span>
-                <span>{item.label}</span>
-                {item.badge && (
-                  <span className="ml-auto bg-red-500 text-white text-xs font-semibold px-1.5 py-0.5 rounded-full">
-                    {item.badge}
-                  </span>
-                )}
-              </div>
-            ))}
-          </nav>
-        </aside>
+        <Sidebar
+          activePage={page}
+          onNavigate={setPage}
+          user={user}
+          onLogout={handleLogout}
+        />
 
-        {/* Main */}
-        <div className="flex-1 p-8">
-          <h1 className="text-2xl font-bold mb-1">Доброе утро! 👋</h1>
-          <p className="text-gray-400 mb-6">
-            {loading ? 'Загрузка...' : error ? 'Демо-данные (backend не подключен)' : 'Данные из API'}
-          </p>
+        <div className="flex-1 p-8 min-w-0">
+          <TopBar title={currentNav.label} subtitle={subtitles[page]} />
 
-          {/* KPI Cards */}
-          <div className="grid grid-cols-4 gap-5 mb-7">
-            {[
-              { label: 'Новые заявки', value: data.kpis.new_leads, icon: '📥', color: 'blue' },
-              { label: 'Активные сделки', value: data.kpis.active_deals, icon: '🎯', color: 'purple' },
-              { label: 'Выручка (мес)', value: formatRub(data.kpis.revenue_month), icon: '💰', color: 'green' },
-              { label: 'Просрочено задач', value: data.kpis.overdue_tasks, icon: '✅', color: 'orange' },
-            ].map((kpi) => (
-              <div
-                key={kpi.label}
-                className="bg-[#1E1B4B] border border-[#312E81] rounded-xl p-5 hover:border-indigo-700 transition-colors"
-              >
-                <div className="flex justify-between items-start mb-3">
-                  <span className="text-sm text-gray-400 font-medium">{kpi.label}</span>
-                  <div className="w-9 h-9 rounded-lg flex items-center justify-center text-lg bg-blue-500/15">
-                    {kpi.icon}
-                  </div>
-                </div>
-                <div className="text-3xl font-bold tabular-nums">{kpi.value}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Funnel */}
-          <div className="bg-[#1E1B4B] border border-[#312E81] rounded-xl p-5 mb-5">
-            <h2 className="text-base font-semibold mb-4">Воронка продаж</h2>
-            <div className="space-y-2">
-              {data.funnel.map((stage, i) => (
-                <div key={stage.stage_name} className="flex items-center gap-3">
-                  <span className="w-32 text-sm text-gray-400 flex-shrink-0">{stage.stage_name}</span>
-                  <div className="flex-1 h-7 bg-[#2D2A6E] rounded-md overflow-hidden">
-                    <div
-                      className="h-full rounded-md flex items-center px-3 text-xs font-semibold text-white"
-                      style={{
-                        width: `${(stage.count / maxFunnel) * 100}%`,
-                        background: `linear-gradient(90deg, hsl(${250 + i * 15}, 80%, 60%), hsl(${250 + i * 15 + 30}, 80%, 65%))`,
-                      }}
-                    >
-                      {stage.count}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Revenue Chart */}
-          <div className="bg-[#1E1B4B] border border-[#312E81] rounded-xl p-5">
-            <h2 className="text-base font-semibold mb-4">Выручка за 6 месяцев</h2>
-            <div className="flex items-end gap-3 h-40">
-              {data.revenue_chart.map((r, i) => (
-                <div key={r.month} className="flex-1 flex flex-col items-center gap-2">
-                  <div
-                    className={`w-full max-w-10 rounded-t-md transition-all hover:brightness-125 cursor-pointer ${
-                      i === data.revenue_chart.length - 1
-                        ? 'bg-gradient-to-b from-emerald-500 to-emerald-600'
-                        : 'bg-gradient-to-b from-indigo-500 to-indigo-700'
-                    }`}
-                    style={{ height: `${(r.amount / maxRevenue) * 100}%` }}
-                    title={formatRub(r.amount)}
-                  />
-                  <span className={`text-xs ${i === data.revenue_chart.length - 1 ? 'text-emerald-400 font-semibold' : 'text-gray-500'}`}>
-                    {r.month}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
+          {/* Page content */}
+          {page === 'dashboard' && <DashboardPage />}
+          {page === 'leads' && <LeadsPage />}
+          {page === 'deals' && <DealsPage />}
+          {page === 'customers' && <CustomersPage />}
+          {page === 'tasks' && <TasksPage />}
+          {page === 'calendar' && <CalendarPage />}
+          {page === 'finance' && <FinancePage />}
+          {page === 'documents' && <DocumentsPage />}
+          {page === 'analytics' && <AnalyticsPage />}
         </div>
       </div>
     </div>

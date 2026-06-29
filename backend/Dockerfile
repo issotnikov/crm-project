@@ -11,9 +11,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install LibreOffice for PDF conversion (document generation)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libreoffice-writer-nogui \
-    && rm -rf /var/lib/apt/lists/*
+# NOTE: Uncomment for production. Skipped in dev for faster builds.
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#     libreoffice-writer-nogui \
+#     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
