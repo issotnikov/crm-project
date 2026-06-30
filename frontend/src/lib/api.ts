@@ -1,4 +1,4 @@
-// API client with JWT auth
+// API client with JWT auth — uses /mock endpoints for demo data
 
 const API_URL = '/api/v1'
 
@@ -27,7 +27,7 @@ export function getUser(): { name: string; email: string; role: string } | null 
   return raw ? JSON.parse(raw) : null
 }
 
-export function setUser(user: { name: string; email: string; role: string; position?: string; department?: string }) {
+export function setUser(user: any) {
   localStorage.setItem('crm_user', JSON.stringify(user))
 }
 
@@ -38,9 +38,7 @@ async function apiFetch(path: string, options: RequestInit = {}): Promise<any> {
     'Content-Type': 'application/json',
     ...options.headers as Record<string, string>,
   }
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
-  }
+  if (token) headers['Authorization'] = `Bearer ${token}`
 
   const resp = await fetch(`${API_URL}${path}`, { ...options, headers })
 
@@ -67,11 +65,7 @@ async function apiFetch(path: string, options: RequestInit = {}): Promise<any> {
     throw new Error('Unauthorized')
   }
 
-  if (!resp.ok) {
-    const errBody = await resp.json().catch(() => ({}))
-    throw new Error(errBody?.error?.message || `HTTP ${resp.status}`)
-  }
-
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
   return resp.json()
 }
 
@@ -79,32 +73,23 @@ async function apiFetch(path: string, options: RequestInit = {}): Promise<any> {
 export const api = {
   // Auth
   login: (email: string, password: string) =>
-    apiFetch('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    }),
-
+    apiFetch('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
   getProfile: () => apiFetch('/auth/profile'),
   updateProfile: (data: any) => apiFetch('/auth/profile', { method: 'PUT', body: JSON.stringify(data) }),
-
-  // Users (admin)
   getUsers: () => apiFetch('/auth/users'),
   createUser: (data: any) => apiFetch('/auth/users', { method: 'POST', body: JSON.stringify(data) }),
   updateUser: (email: string, data: any) => apiFetch(`/auth/users/${email}`, { method: 'PUT', body: JSON.stringify(data) }),
   deactivateUser: (email: string) => apiFetch(`/auth/users/${email}`, { method: 'DELETE' }),
 
+  // Mock data (demo)
+  getCustomers: (search?: string) => apiFetch(`/mock/customers${search ? `?search=${encodeURIComponent(search)}` : ''}`),
+  getCustomerDetail: (id: string) => apiFetch(`/mock/customers/${id}`),
+  getLeads: (status?: string, source?: string) => apiFetch(`/mock/leads${status || source ? `?${status ? `status=${status}` : ''}${status && source ? '&' : ''}${source ? `source=${source}` : ''}` : ''}`),
+  getLeadDetail: (id: string) => apiFetch(`/mock/leads/${id}`),
+  getDeals: (status?: string) => apiFetch(`/mock/deals${status ? `?status=${status}` : ''}`),
+  getDealDetail: (id: string) => apiFetch(`/mock/deals/${id}`),
+  getPipelines: () => apiFetch('/mock/pipelines'),
+
   // Analytics
   getDashboard: () => apiFetch('/analytics/dashboard'),
-
-  // CRM
-  getLeads: () => apiFetch('/crm/leads'),
-  getDeals: () => apiFetch('/crm/deals'),
-  getCustomers: () => apiFetch('/crm/customers'),
-
-  // Tasks
-  getTasks: () => apiFetch('/tasks/'),
-
-  // Finance
-  getInvoices: () => apiFetch('/finance/invoices'),
-  getFinanceSummary: () => apiFetch('/finance/dashboard'),
 }

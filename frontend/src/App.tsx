@@ -2,14 +2,11 @@ import { useState, useEffect } from 'react'
 import { api, getToken, clearTokens, getUser } from './lib/api'
 import { LoginPage } from './pages/LoginPage'
 import { LeadsPage } from './pages/LeadsPage'
+import { CustomersPage } from './pages/CustomersPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { UsersPage } from './pages/UsersPage'
-import {
-  DealsPage, CustomersPage, TasksPage,
-  CalendarPage, FinancePage, DocumentsPage, AnalyticsPage,
-} from './pages/OtherPages'
+import { DealsPage, TasksPage, CalendarPage, FinancePage, DocumentsPage, AnalyticsPage } from './pages/OtherPages'
 
-// ── Types ──────────────────────────────────────────────────────
 type PageKey = 'dashboard' | 'leads' | 'deals' | 'customers' | 'tasks' | 'calendar' | 'finance' | 'documents' | 'analytics' | 'users' | 'profile'
 
 interface DashboardData {
@@ -20,11 +17,10 @@ interface DashboardData {
 
 const EMPTY_DASHBOARD: DashboardData = {
   kpis: { new_leads: 0, active_deals: 0, revenue_month: 0, overdue_tasks: 0 },
-  funnel: [],
-  revenue_chart: [],
+  funnel: [], revenue_chart: [],
 }
 
-function getNavItems(userRole: string): { key: PageKey; icon: string; label: string; badge?: number; adminOnly?: boolean }[] {
+function getNavItems(userRole: string) {
   const items: { key: PageKey; icon: string; label: string; badge?: number; adminOnly?: boolean }[] = [
     { key: 'dashboard', icon: '📊', label: 'Дашборд' },
     { key: 'leads', icon: '📥', label: 'Заявки', badge: 8 },
@@ -36,28 +32,21 @@ function getNavItems(userRole: string): { key: PageKey; icon: string; label: str
     { key: 'documents', icon: '📄', label: 'Документы' },
     { key: 'analytics', icon: '📈', label: 'Аналитика' },
   ]
-
-  // Admin-only section
   if (userRole === 'admin') {
     items.push({ key: 'users', icon: '🛡️', label: 'Пользователи', adminOnly: true })
   }
-
   return items
 }
 
-// ── Helpers ────────────────────────────────────────────────────
 function formatRub(n: number): string {
   if (n >= 1_000_000) return `₽${(n / 1_000_000).toFixed(1)}M`
   if (n >= 1_000) return `₽${(n / 1_000).toFixed(0)}K`
   return `₽${n}`
 }
 
-// ── Sidebar ────────────────────────────────────────────────────
 function Sidebar({ activePage, onNavigate, user, onLogout }: {
-  activePage: PageKey
-  onNavigate: (page: PageKey) => void
-  user: { name: string; email: string; role: string }
-  onLogout: () => void
+  activePage: PageKey; onNavigate: (p: PageKey) => void
+  user: { name: string; email: string; role: string }; onLogout: () => void
 }) {
   const navItems = getNavItems(user.role)
   const isAdmin = user.role === 'admin'
@@ -65,99 +54,55 @@ function Sidebar({ activePage, onNavigate, user, onLogout }: {
 
   return (
     <aside className="w-60 min-h-screen bg-[#1A1147] border-r border-[#312E81] flex flex-col">
-      {/* Logo */}
       <div className="p-5 flex items-center gap-2 border-b border-[#312E81]">
-        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center font-bold text-white">
-          C
-        </div>
+        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center font-bold text-white">C</div>
         <span className="font-bold text-base">CRM System</span>
       </div>
-
-      {/* Nav */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {navItems.filter((item) => !item.adminOnly || isAdmin).map((item) => (
           <button
             key={item.key}
             onClick={() => onNavigate(item.key)}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm ${
-              activePage === item.key
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                : 'text-gray-400 hover:bg-[#1E1B4B] hover:text-white'
-            }`}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm ${activePage === item.key ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-gray-400 hover:bg-[#1E1B4B] hover:text-white'}`}
           >
             <span className="text-lg">{item.icon}</span>
             <span>{item.label}</span>
-            {item.badge && (
-              <span className={`ml-auto text-xs font-semibold px-1.5 py-0.5 rounded-full ${
-                activePage === item.key ? 'bg-white/20' : 'bg-red-500 text-white'
-              }`}>
-                {item.badge}
-              </span>
-            )}
+            {item.badge && <span className={`ml-auto text-xs font-semibold px-1.5 py-0.5 rounded-full ${activePage === item.key ? 'bg-white/20' : 'bg-red-500 text-white'}`}>{item.badge}</span>}
           </button>
         ))}
       </nav>
-
-      {/* User + Profile */}
       <div className="p-3 border-t border-[#312E81] space-y-1">
-        {/* Profile button */}
-        <button
-          onClick={() => onNavigate('profile')}
-          className={`w-full flex items-center gap-2.5 p-2 rounded-lg transition-colors ${
-            activePage === 'profile' ? 'bg-[#1E1B4B]' : 'hover:bg-[#1E1B4B]'
-          }`}
-        >
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
-            {initials}
-          </div>
+        <button onClick={() => onNavigate('profile')} className={`w-full flex items-center gap-2.5 p-2 rounded-lg transition-colors ${activePage === 'profile' ? 'bg-[#1E1B4B]' : 'hover:bg-[#1E1B4B]'}`}>
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">{initials}</div>
           <div className="flex-1 min-w-0 text-left">
             <div className="text-sm font-medium truncate">{user.name}</div>
-            <div className="text-xs text-gray-500 truncate">
-              {isAdmin ? '🛡️ Администратор' : '👤 Пользователь'}
-            </div>
+            <div className="text-xs text-gray-500 truncate">{isAdmin ? '🛡️ Администратор' : '👤 Пользователь'}</div>
           </div>
         </button>
-
-        {/* Logout */}
-        <button
-          onClick={onLogout}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-500 hover:text-red-400 hover:bg-red-500/5 transition-colors"
-        >
-          <span>⏻</span>
-          <span>Выйти</span>
+        <button onClick={onLogout} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-500 hover:text-red-400 hover:bg-red-500/5 transition-colors">
+          <span>⏻</span><span>Выйти</span>
         </button>
       </div>
     </aside>
   )
 }
 
-// ── Top bar ────────────────────────────────────────────────────
 function TopBar({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <div className="flex items-center gap-4 mb-6">
       <div className="flex-1 max-w-md relative">
         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">🔍</span>
-        <input
-          type="text"
-          placeholder="Поиск клиентов, сделок, задач..."
-          className="w-full bg-[#2D2A6E] border border-[#312E81] rounded-lg pl-10 pr-16 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-        />
-        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs bg-[#1E1B4B] border border-[#312E81] rounded px-1.5 py-0.5 text-gray-500">
-          ⌘K
-        </span>
+        <input type="text" placeholder="Поиск клиентов, сделок, задач..." className="w-full bg-[#2D2A6E] border border-[#312E81] rounded-lg pl-10 pr-16 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500" />
+        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs bg-[#1E1B4B] border border-[#312E81] rounded px-1.5 py-0.5 text-gray-500">⌘K</span>
       </div>
       <button className="w-9 h-9 rounded-lg bg-[#1E1B4B] border border-[#312E81] flex items-center justify-center text-gray-400 hover:text-white transition-colors relative">
-        🔔
-        <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
+        🔔<span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
       </button>
-      <div className="text-xs text-gray-500">
-        {new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}
-      </div>
+      <div className="text-xs text-gray-500">{new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
     </div>
   )
 }
 
-// ── Dashboard page ─────────────────────────────────────────────
 function DashboardPage() {
   const [data, setData] = useState<DashboardData>(EMPTY_DASHBOARD)
   const [loading, setLoading] = useState(true)
@@ -194,10 +139,7 @@ function DashboardPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-1">Доброе утро! 👋</h1>
-      <p className="text-gray-400 text-sm mb-6">
-        {loading ? 'Загрузка...' : apiConnected ? 'Данные из API' : 'Демо-данные (backend не подключён)'}
-      </p>
-
+      <p className="text-gray-400 text-sm mb-6">{loading ? 'Загрузка...' : apiConnected ? 'Данные из API' : 'Демо-данные'}</p>
       <div className="grid grid-cols-4 gap-5 mb-7">
         {[
           { label: 'Новые заявки', value: data.kpis.new_leads, icon: '📥' },
@@ -214,7 +156,6 @@ function DashboardPage() {
           </div>
         ))}
       </div>
-
       <div className="grid grid-cols-2 gap-5">
         <div className="bg-[#1E1B4B] border border-[#312E81] rounded-xl p-5">
           <h2 className="text-base font-semibold mb-4">Воронка продаж</h2>
@@ -223,34 +164,19 @@ function DashboardPage() {
               <div key={stage.stage_name} className="flex items-center gap-3">
                 <span className="w-32 text-sm text-gray-400 flex-shrink-0">{stage.stage_name}</span>
                 <div className="flex-1 h-7 bg-[#2D2A6E] rounded-md overflow-hidden">
-                  <div className="h-full rounded-md flex items-center px-3 text-xs font-semibold text-white"
-                    style={{
-                      width: `${(stage.count / maxFunnel) * 100}%`,
-                      background: `linear-gradient(90deg, hsl(${250 + i * 15}, 80%, 60%), hsl(${250 + i * 15 + 30}, 80%, 65%))`,
-                    }}>
-                    {stage.count}
-                  </div>
+                  <div className="h-full rounded-md flex items-center px-3 text-xs font-semibold text-white" style={{ width: `${(stage.count / maxFunnel) * 100}%`, background: `linear-gradient(90deg, hsl(${250 + i * 15}, 80%, 60%), hsl(${250 + i * 15 + 30}, 80%, 65%))` }}>{stage.count}</div>
                 </div>
               </div>
             ))}
           </div>
         </div>
-
         <div className="bg-[#1E1B4B] border border-[#312E81] rounded-xl p-5">
           <h2 className="text-base font-semibold mb-4">Выручка за 6 месяцев</h2>
           <div className="flex items-end gap-3 h-40">
             {data.revenue_chart.map((r, i) => (
               <div key={r.month} className="flex-1 flex flex-col items-center gap-2">
-                <div
-                  className={`w-full max-w-10 rounded-t-md transition-all hover:brightness-125 cursor-pointer ${
-                    i === data.revenue_chart.length - 1 ? 'bg-gradient-to-b from-emerald-500 to-emerald-600' : 'bg-gradient-to-b from-indigo-500 to-indigo-700'
-                  }`}
-                  style={{ height: `${(r.amount / maxRevenue) * 100}%` }}
-                  title={formatRub(r.amount)}
-                />
-                <span className={`text-xs ${i === data.revenue_chart.length - 1 ? 'text-emerald-400 font-semibold' : 'text-gray-500'}`}>
-                  {r.month}
-                </span>
+                <div className={`w-full max-w-10 rounded-t-md transition-all hover:brightness-125 cursor-pointer ${i === data.revenue_chart.length - 1 ? 'bg-gradient-to-b from-emerald-500 to-emerald-600' : 'bg-gradient-to-b from-indigo-500 to-indigo-700'}`} style={{ height: `${(r.amount / maxRevenue) * 100}%` }} title={formatRub(r.amount)} />
+                <span className={`text-xs ${i === data.revenue_chart.length - 1 ? 'text-emerald-400 font-semibold' : 'text-gray-500'}`}>{r.month}</span>
               </div>
             ))}
           </div>
@@ -260,53 +186,28 @@ function DashboardPage() {
   )
 }
 
-// ── Main App ───────────────────────────────────────────────────
 function App() {
   const [authed, setAuthed] = useState(false)
   const [page, setPage] = useState<PageKey>('dashboard')
 
-  useEffect(() => {
-    if (getToken()) setAuthed(true)
-  }, [])
+  useEffect(() => { if (getToken()) setAuthed(true) }, [])
 
-  const handleLogin = () => setAuthed(true)
-
-  const handleLogout = () => {
-    clearTokens()
-    setAuthed(false)
-    setPage('dashboard')
-  }
-
-  if (!authed) {
-    return <LoginPage onLogin={handleLogin} />
-  }
+  if (!authed) return <LoginPage onLogin={() => setAuthed(true)} />
 
   const user = getUser() || { name: 'Пользователь', email: '', role: 'user' }
-  const navItems = getNavItems(user.role)
-  const currentNav = navItems.find((n) => n.key === page) || { label: 'CRM', icon: '📊' }
-
   const subtitles: Record<PageKey, string> = {
-    dashboard: 'Сводка за день',
-    leads: 'Входящие заявки из всех каналов',
-    deals: 'Воронка продаж',
-    customers: 'База клиентов',
-    tasks: 'Задачи и контроль',
-    calendar: 'Календарь событий',
-    finance: 'Счета и оплаты',
-    documents: 'Документы и шаблоны',
-    analytics: 'Отчёты и аналитика',
-    users: 'Управление пользователями',
-    profile: 'Личные данные',
+    dashboard: 'Сводка за день', leads: 'Входящие заявки', deals: 'Воронка продаж',
+    customers: 'База клиентов', tasks: 'Задачи и контроль', calendar: 'Календарь',
+    finance: 'Счета и оплаты', documents: 'Документы', analytics: 'Отчёты',
+    users: 'Управление пользователями', profile: 'Личные данные',
   }
 
   return (
     <div className="min-h-screen bg-[#0F0B2E] text-gray-100">
       <div className="flex">
-        <Sidebar activePage={page} onNavigate={setPage} user={user} onLogout={handleLogout} />
-
+        <Sidebar activePage={page} onNavigate={setPage} user={user} onLogout={() => { clearTokens(); setAuthed(false); setPage('dashboard') }} />
         <div className="flex-1 p-8 min-w-0">
-          <TopBar title={currentNav.label} subtitle={subtitles[page]} />
-
+          <TopBar title={page} subtitle={subtitles[page]} />
           {page === 'dashboard' && <DashboardPage />}
           {page === 'leads' && <LeadsPage />}
           {page === 'deals' && <DealsPage />}

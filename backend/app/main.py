@@ -19,12 +19,7 @@ from app.core.middleware import RequestIdMiddleware, AuditLogMiddleware
 async def lifespan(app: FastAPI):
     """Application startup and shutdown events."""
     logger.info(f"Starting CRM API in {settings.APP_ENV} mode...")
-    logger.info(f"Database: {settings.DATABASE_URL.split('@')[1] if '@' in settings.DATABASE_URL else 'localhost'}")
-
-    # Startup
     yield
-
-    # Shutdown
     logger.info("Shutting down CRM API...")
     await engine.dispose()
 
@@ -35,8 +30,8 @@ def create_app() -> FastAPI:
         title="CRM System API",
         description="REST API для CRM системы обработки входящих заявок",
         version="1.0.0",
-        docs_url="/docs" if settings.APP_ENV != "production" else None,
-        redoc_url="/redoc" if settings.APP_ENV != "production" else None,
+        docs_url="/docs",
+        redoc_url="/redoc",
         openapi_url="/api/v1/openapi.json",
         lifespan=lifespan,
     )
@@ -58,17 +53,12 @@ def create_app() -> FastAPI:
     async def crm_error_handler(request: Request, exc: CRMApiError):
         return JSONResponse(
             status_code=exc.status_code,
-            content={
-                "error": {
-                    "code": exc.error_code,
-                    "message": exc.message,
-                    "details": exc.details,
-                }
-            },
+            content={"error": {"code": exc.error_code, "message": exc.message, "details": exc.details}},
         )
 
     # ── Routers ────────────────────────────────────────────────────────────
     from app.modules.admin.api import router as admin_router
+    from app.modules.mock_api import router as mock_router
     from app.modules.crm.api import router as crm_router
     from app.modules.tasks.api import router as tasks_router
     from app.modules.finance.api import router as finance_router
@@ -81,6 +71,7 @@ def create_app() -> FastAPI:
     api_prefix = "/api/v1"
 
     app.include_router(admin_router, prefix=api_prefix, tags=["Admin"])
+    app.include_router(mock_router, prefix=api_prefix, tags=["Mock Data"])
     app.include_router(crm_router, prefix=api_prefix, tags=["CRM"])
     app.include_router(tasks_router, prefix=api_prefix, tags=["Tasks"])
     app.include_router(finance_router, prefix=api_prefix, tags=["Finance"])
