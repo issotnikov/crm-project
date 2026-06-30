@@ -27,6 +27,10 @@ export function getUser(): { name: string; email: string; role: string } | null 
   return raw ? JSON.parse(raw) : null
 }
 
+export function setUser(user: { name: string; email: string; role: string; position?: string; department?: string }) {
+  localStorage.setItem('crm_user', JSON.stringify(user))
+}
+
 // ── Fetch with auth ───────────────────────────────────────────
 async function apiFetch(path: string, options: RequestInit = {}): Promise<any> {
   const token = getToken()
@@ -41,7 +45,6 @@ async function apiFetch(path: string, options: RequestInit = {}): Promise<any> {
   const resp = await fetch(`${API_URL}${path}`, { ...options, headers })
 
   if (resp.status === 401) {
-    // Try refresh
     const refresh = getRefreshToken()
     if (refresh && !path.includes('/auth/')) {
       try {
@@ -53,14 +56,11 @@ async function apiFetch(path: string, options: RequestInit = {}): Promise<any> {
         if (refreshResp.ok) {
           const data = await refreshResp.json()
           localStorage.setItem('crm_access_token', data.access_token)
-          // Retry original request
           headers['Authorization'] = `Bearer ${data.access_token}`
           const retry = await fetch(`${API_URL}${path}`, { ...options, headers })
           return retry.json()
         }
-      } catch {
-        // refresh failed
-      }
+      } catch { /* refresh failed */ }
     }
     clearTokens()
     window.location.reload()
@@ -68,7 +68,8 @@ async function apiFetch(path: string, options: RequestInit = {}): Promise<any> {
   }
 
   if (!resp.ok) {
-    throw new Error(`HTTP ${resp.status}`)
+    const errBody = await resp.json().catch(() => ({}))
+    throw new Error(errBody?.error?.message || `HTTP ${resp.status}`)
   }
 
   return resp.json()
@@ -83,9 +84,17 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
 
+  getProfile: () => apiFetch('/auth/profile'),
+  updateProfile: (data: any) => apiFetch('/auth/profile', { method: 'PUT', body: JSON.stringify(data) }),
+
+  // Users (admin)
+  getUsers: () => apiFetch('/auth/users'),
+  createUser: (data: any) => apiFetch('/auth/users', { method: 'POST', body: JSON.stringify(data) }),
+  updateUser: (email: string, data: any) => apiFetch(`/auth/users/${email}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deactivateUser: (email: string) => apiFetch(`/auth/users/${email}`, { method: 'DELETE' }),
+
   // Analytics
   getDashboard: () => apiFetch('/analytics/dashboard'),
-  getFunnel: () => apiFetch('/funnel'.replace('/funnel', '/analytics/funnel')),
 
   // CRM
   getLeads: () => apiFetch('/crm/leads'),

@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react'
 import { api, getToken, clearTokens, getUser } from './lib/api'
 import { LoginPage } from './pages/LoginPage'
 import { LeadsPage } from './pages/LeadsPage'
+import { ProfilePage } from './pages/ProfilePage'
+import { UsersPage } from './pages/UsersPage'
 import {
   DealsPage, CustomersPage, TasksPage,
   CalendarPage, FinancePage, DocumentsPage, AnalyticsPage,
 } from './pages/OtherPages'
 
 // ── Types ──────────────────────────────────────────────────────
-type PageKey = 'dashboard' | 'leads' | 'deals' | 'customers' | 'tasks' | 'calendar' | 'finance' | 'documents' | 'analytics'
+type PageKey = 'dashboard' | 'leads' | 'deals' | 'customers' | 'tasks' | 'calendar' | 'finance' | 'documents' | 'analytics' | 'users' | 'profile'
 
 interface DashboardData {
   kpis: { new_leads: number; active_deals: number; revenue_month: number; overdue_tasks: number }
@@ -22,17 +24,26 @@ const EMPTY_DASHBOARD: DashboardData = {
   revenue_chart: [],
 }
 
-const NAV_ITEMS: { key: PageKey; icon: string; label: string; badge?: number }[] = [
-  { key: 'dashboard', icon: '📊', label: 'Дашборд' },
-  { key: 'leads', icon: '📥', label: 'Заявки', badge: 8 },
-  { key: 'deals', icon: '🎯', label: 'Сделки' },
-  { key: 'customers', icon: '👥', label: 'Клиенты' },
-  { key: 'tasks', icon: '✅', label: 'Задачи', badge: 5 },
-  { key: 'calendar', icon: '📅', label: 'Календарь' },
-  { key: 'finance', icon: '💰', label: 'Финансы' },
-  { key: 'documents', icon: '📄', label: 'Документы' },
-  { key: 'analytics', icon: '📈', label: 'Аналитика' },
-]
+function getNavItems(userRole: string): { key: PageKey; icon: string; label: string; badge?: number; adminOnly?: boolean }[] {
+  const items: { key: PageKey; icon: string; label: string; badge?: number; adminOnly?: boolean }[] = [
+    { key: 'dashboard', icon: '📊', label: 'Дашборд' },
+    { key: 'leads', icon: '📥', label: 'Заявки', badge: 8 },
+    { key: 'deals', icon: '🎯', label: 'Сделки' },
+    { key: 'customers', icon: '👥', label: 'Клиенты' },
+    { key: 'tasks', icon: '✅', label: 'Задачи', badge: 5 },
+    { key: 'calendar', icon: '📅', label: 'Календарь' },
+    { key: 'finance', icon: '💰', label: 'Финансы' },
+    { key: 'documents', icon: '📄', label: 'Документы' },
+    { key: 'analytics', icon: '📈', label: 'Аналитика' },
+  ]
+
+  // Admin-only section
+  if (userRole === 'admin') {
+    items.push({ key: 'users', icon: '🛡️', label: 'Пользователи', adminOnly: true })
+  }
+
+  return items
+}
 
 // ── Helpers ────────────────────────────────────────────────────
 function formatRub(n: number): string {
@@ -48,6 +59,10 @@ function Sidebar({ activePage, onNavigate, user, onLogout }: {
   user: { name: string; email: string; role: string }
   onLogout: () => void
 }) {
+  const navItems = getNavItems(user.role)
+  const isAdmin = user.role === 'admin'
+  const initials = user.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+
   return (
     <aside className="w-60 min-h-screen bg-[#1A1147] border-r border-[#312E81] flex flex-col">
       {/* Logo */}
@@ -59,8 +74,8 @@ function Sidebar({ activePage, onNavigate, user, onLogout }: {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 p-3 space-y-1">
-        {NAV_ITEMS.map((item) => (
+      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+        {navItems.filter((item) => !item.adminOnly || isAdmin).map((item) => (
           <button
             key={item.key}
             onClick={() => onNavigate(item.key)}
@@ -83,24 +98,34 @@ function Sidebar({ activePage, onNavigate, user, onLogout }: {
         ))}
       </nav>
 
-      {/* User */}
-      <div className="p-3 border-t border-[#312E81]">
-        <div className="flex items-center gap-2.5 p-2 rounded-lg">
+      {/* User + Profile */}
+      <div className="p-3 border-t border-[#312E81] space-y-1">
+        {/* Profile button */}
+        <button
+          onClick={() => onNavigate('profile')}
+          className={`w-full flex items-center gap-2.5 p-2 rounded-lg transition-colors ${
+            activePage === 'profile' ? 'bg-[#1E1B4B]' : 'hover:bg-[#1E1B4B]'
+          }`}
+        >
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
-            {user.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
+            {initials}
           </div>
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 text-left">
             <div className="text-sm font-medium truncate">{user.name}</div>
-            <div className="text-xs text-gray-500 truncate">{user.role}</div>
+            <div className="text-xs text-gray-500 truncate">
+              {isAdmin ? '🛡️ Администратор' : '👤 Пользователь'}
+            </div>
           </div>
-          <button
-            onClick={onLogout}
-            className="text-gray-500 hover:text-red-400 transition-colors p-1"
-            title="Выйти"
-          >
-            ⏻
-          </button>
-        </div>
+        </button>
+
+        {/* Logout */}
+        <button
+          onClick={onLogout}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-500 hover:text-red-400 hover:bg-red-500/5 transition-colors"
+        >
+          <span>⏻</span>
+          <span>Выйти</span>
+        </button>
       </div>
     </aside>
   )
@@ -154,12 +179,9 @@ function DashboardPage() {
             { stage_name: 'Выиграно', count: 38, amount: 4_200_000 },
           ],
           revenue_chart: [
-            { month: 'Янв', amount: 3_100_000 },
-            { month: 'Фев', amount: 3_500_000 },
-            { month: 'Мар', amount: 3_800_000 },
-            { month: 'Апр', amount: 3_600_000 },
-            { month: 'Май', amount: 3_700_000 },
-            { month: 'Июн', amount: 4_200_000 },
+            { month: 'Янв', amount: 3_100_000 }, { month: 'Фев', amount: 3_500_000 },
+            { month: 'Мар', amount: 3_800_000 }, { month: 'Апр', amount: 3_600_000 },
+            { month: 'Май', amount: 3_700_000 }, { month: 'Июн', amount: 4_200_000 },
           ],
         })
       })
@@ -176,7 +198,6 @@ function DashboardPage() {
         {loading ? 'Загрузка...' : apiConnected ? 'Данные из API' : 'Демо-данные (backend не подключён)'}
       </p>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-4 gap-5 mb-7">
         {[
           { label: 'Новые заявки', value: data.kpis.new_leads, icon: '📥' },
@@ -195,7 +216,6 @@ function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-5">
-        {/* Funnel */}
         <div className="bg-[#1E1B4B] border border-[#312E81] rounded-xl p-5">
           <h2 className="text-base font-semibold mb-4">Воронка продаж</h2>
           <div className="space-y-2">
@@ -203,13 +223,11 @@ function DashboardPage() {
               <div key={stage.stage_name} className="flex items-center gap-3">
                 <span className="w-32 text-sm text-gray-400 flex-shrink-0">{stage.stage_name}</span>
                 <div className="flex-1 h-7 bg-[#2D2A6E] rounded-md overflow-hidden">
-                  <div
-                    className="h-full rounded-md flex items-center px-3 text-xs font-semibold text-white"
+                  <div className="h-full rounded-md flex items-center px-3 text-xs font-semibold text-white"
                     style={{
                       width: `${(stage.count / maxFunnel) * 100}%`,
                       background: `linear-gradient(90deg, hsl(${250 + i * 15}, 80%, 60%), hsl(${250 + i * 15 + 30}, 80%, 65%))`,
-                    }}
-                  >
+                    }}>
                     {stage.count}
                   </div>
                 </div>
@@ -218,7 +236,6 @@ function DashboardPage() {
           </div>
         </div>
 
-        {/* Revenue */}
         <div className="bg-[#1E1B4B] border border-[#312E81] rounded-xl p-5">
           <h2 className="text-base font-semibold mb-4">Выручка за 6 месяцев</h2>
           <div className="flex items-end gap-3 h-40">
@@ -226,9 +243,7 @@ function DashboardPage() {
               <div key={r.month} className="flex-1 flex flex-col items-center gap-2">
                 <div
                   className={`w-full max-w-10 rounded-t-md transition-all hover:brightness-125 cursor-pointer ${
-                    i === data.revenue_chart.length - 1
-                      ? 'bg-gradient-to-b from-emerald-500 to-emerald-600'
-                      : 'bg-gradient-to-b from-indigo-500 to-indigo-700'
+                    i === data.revenue_chart.length - 1 ? 'bg-gradient-to-b from-emerald-500 to-emerald-600' : 'bg-gradient-to-b from-indigo-500 to-indigo-700'
                   }`}
                   style={{ height: `${(r.amount / maxRevenue) * 100}%` }}
                   title={formatRub(r.amount)}
@@ -251,10 +266,7 @@ function App() {
   const [page, setPage] = useState<PageKey>('dashboard')
 
   useEffect(() => {
-    // Check if user has a token
-    if (getToken()) {
-      setAuthed(true)
-    }
+    if (getToken()) setAuthed(true)
   }, [])
 
   const handleLogin = () => setAuthed(true)
@@ -265,13 +277,14 @@ function App() {
     setPage('dashboard')
   }
 
-  // Show login page if not authenticated
   if (!authed) {
     return <LoginPage onLogin={handleLogin} />
   }
 
   const user = getUser() || { name: 'Пользователь', email: '', role: 'user' }
-  const currentNav = NAV_ITEMS.find((n) => n.key === page) || NAV_ITEMS[0]
+  const navItems = getNavItems(user.role)
+  const currentNav = navItems.find((n) => n.key === page) || { label: 'CRM', icon: '📊' }
+
   const subtitles: Record<PageKey, string> = {
     dashboard: 'Сводка за день',
     leads: 'Входящие заявки из всех каналов',
@@ -282,22 +295,18 @@ function App() {
     finance: 'Счета и оплаты',
     documents: 'Документы и шаблоны',
     analytics: 'Отчёты и аналитика',
+    users: 'Управление пользователями',
+    profile: 'Личные данные',
   }
 
   return (
     <div className="min-h-screen bg-[#0F0B2E] text-gray-100">
       <div className="flex">
-        <Sidebar
-          activePage={page}
-          onNavigate={setPage}
-          user={user}
-          onLogout={handleLogout}
-        />
+        <Sidebar activePage={page} onNavigate={setPage} user={user} onLogout={handleLogout} />
 
         <div className="flex-1 p-8 min-w-0">
           <TopBar title={currentNav.label} subtitle={subtitles[page]} />
 
-          {/* Page content */}
           {page === 'dashboard' && <DashboardPage />}
           {page === 'leads' && <LeadsPage />}
           {page === 'deals' && <DealsPage />}
@@ -307,6 +316,8 @@ function App() {
           {page === 'finance' && <FinancePage />}
           {page === 'documents' && <DocumentsPage />}
           {page === 'analytics' && <AnalyticsPage />}
+          {page === 'users' && user.role === 'admin' && <UsersPage />}
+          {page === 'profile' && <ProfilePage />}
         </div>
       </div>
     </div>
