@@ -3,9 +3,12 @@ import { api, getToken, clearTokens, getUser } from './lib/api'
 import { LoginPage } from './pages/LoginPage'
 import { LeadsPage } from './pages/LeadsPage'
 import { CustomersPage } from './pages/CustomersPage'
+import { TasksPage } from './pages/TasksPage'
+import { CalendarPage } from './pages/CalendarPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { UsersPage } from './pages/UsersPage'
-import { DealsPage, TasksPage, CalendarPage, FinancePage, DocumentsPage, AnalyticsPage } from './pages/OtherPages'
+import { DealsPage, FinancePage, DocumentsPage, AnalyticsPage } from './pages/OtherPages'
+import { ReminderToasts } from './components/ReminderToasts'
 
 type PageKey = 'dashboard' | 'leads' | 'deals' | 'customers' | 'tasks' | 'calendar' | 'finance' | 'documents' | 'analytics' | 'users' | 'profile'
 
@@ -32,16 +35,14 @@ function getNavItems(userRole: string) {
     { key: 'documents', icon: '📄', label: 'Документы' },
     { key: 'analytics', icon: '📈', label: 'Аналитика' },
   ]
-  if (userRole === 'admin') {
-    items.push({ key: 'users', icon: '🛡️', label: 'Пользователи', adminOnly: true })
-  }
+  if (userRole === 'admin') items.push({ key: 'users', icon: '🛡️', label: 'Пользователи', adminOnly: true })
   return items
 }
 
 function formatRub(n: number): string {
-  if (n >= 1_000_000) return `₽${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `₽${(n / 1_000).toFixed(0)}K`
-  return `₽${n}`
+  if (n >= 1_000_000) return "₽" + (n / 1_000_000).toFixed(1) + "M"
+  if (n >= 1_000) return "₽" + (n / 1_000).toFixed(0) + "K"
+  return "₽" + n
 }
 
 function Sidebar({ activePage, onNavigate, user, onLogout }: {
@@ -60,19 +61,16 @@ function Sidebar({ activePage, onNavigate, user, onLogout }: {
       </div>
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {navItems.filter((item) => !item.adminOnly || isAdmin).map((item) => (
-          <button
-            key={item.key}
-            onClick={() => onNavigate(item.key)}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm ${activePage === item.key ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-gray-400 hover:bg-[#1E1B4B] hover:text-white'}`}
-          >
+          <button key={item.key} onClick={() => onNavigate(item.key)}
+            className={"w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm " + (activePage === item.key ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-gray-400 hover:bg-[#1E1B4B] hover:text-white')}>
             <span className="text-lg">{item.icon}</span>
             <span>{item.label}</span>
-            {item.badge && <span className={`ml-auto text-xs font-semibold px-1.5 py-0.5 rounded-full ${activePage === item.key ? 'bg-white/20' : 'bg-red-500 text-white'}`}>{item.badge}</span>}
+            {item.badge && <span className={"ml-auto text-xs font-semibold px-1.5 py-0.5 rounded-full " + (activePage === item.key ? 'bg-white/20' : 'bg-red-500 text-white')}>{item.badge}</span>}
           </button>
         ))}
       </nav>
       <div className="p-3 border-t border-[#312E81] space-y-1">
-        <button onClick={() => onNavigate('profile')} className={`w-full flex items-center gap-2.5 p-2 rounded-lg transition-colors ${activePage === 'profile' ? 'bg-[#1E1B4B]' : 'hover:bg-[#1E1B4B]'}`}>
+        <button onClick={() => onNavigate('profile')} className={"w-full flex items-center gap-2.5 p-2 rounded-lg transition-colors " + (activePage === 'profile' ? 'bg-[#1E1B4B]' : 'hover:bg-[#1E1B4B]')}>
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">{initials}</div>
           <div className="flex-1 min-w-0 text-left">
             <div className="text-sm font-medium truncate">{user.name}</div>
@@ -164,7 +162,7 @@ function DashboardPage() {
               <div key={stage.stage_name} className="flex items-center gap-3">
                 <span className="w-32 text-sm text-gray-400 flex-shrink-0">{stage.stage_name}</span>
                 <div className="flex-1 h-7 bg-[#2D2A6E] rounded-md overflow-hidden">
-                  <div className="h-full rounded-md flex items-center px-3 text-xs font-semibold text-white" style={{ width: `${(stage.count / maxFunnel) * 100}%`, background: `linear-gradient(90deg, hsl(${250 + i * 15}, 80%, 60%), hsl(${250 + i * 15 + 30}, 80%, 65%))` }}>{stage.count}</div>
+                  <div className="h-full rounded-md flex items-center px-3 text-xs font-semibold text-white" style={{ width: (stage.count / maxFunnel * 100) + '%', background: 'linear-gradient(90deg, hsl(' + (250 + i * 15) + ',80%,60%), hsl(' + (250 + i * 15 + 30) + ',80%,65%))' }}>{stage.count}</div>
                 </div>
               </div>
             ))}
@@ -175,8 +173,8 @@ function DashboardPage() {
           <div className="flex items-end gap-3 h-40">
             {data.revenue_chart.map((r, i) => (
               <div key={r.month} className="flex-1 flex flex-col items-center gap-2">
-                <div className={`w-full max-w-10 rounded-t-md transition-all hover:brightness-125 cursor-pointer ${i === data.revenue_chart.length - 1 ? 'bg-gradient-to-b from-emerald-500 to-emerald-600' : 'bg-gradient-to-b from-indigo-500 to-indigo-700'}`} style={{ height: `${(r.amount / maxRevenue) * 100}%` }} title={formatRub(r.amount)} />
-                <span className={`text-xs ${i === data.revenue_chart.length - 1 ? 'text-emerald-400 font-semibold' : 'text-gray-500'}`}>{r.month}</span>
+                <div className={"w-full max-w-10 rounded-t-md transition-all hover:brightness-125 cursor-pointer " + (i === data.revenue_chart.length - 1 ? 'bg-gradient-to-b from-emerald-500 to-emerald-600' : 'bg-gradient-to-b from-indigo-500 to-indigo-700')} style={{ height: (r.amount / maxRevenue * 100) + '%' }} title={formatRub(r.amount)} />
+                <span className={"text-xs " + (i === data.revenue_chart.length - 1 ? 'text-emerald-400 font-semibold' : 'text-gray-500')}>{r.month}</span>
               </div>
             ))}
           </div>
@@ -221,6 +219,8 @@ function App() {
           {page === 'profile' && <ProfilePage />}
         </div>
       </div>
+      {/* Floating task reminders */}
+      <ReminderToasts />
     </div>
   )
 }
