@@ -179,6 +179,5 @@ function PlaceholderPage({ title, icon }: { title: string; icon: string }) {
   )
 }
 
-export function FinancePage() { return <PlaceholderPage title="Финансы" icon="💰" /> }
 export function DocumentsPage() { return <PlaceholderPage title="Документы" icon="📄" /> }
 export function AnalyticsPage() { return <PlaceholderPage title="Аналитика" icon="📈" /> }

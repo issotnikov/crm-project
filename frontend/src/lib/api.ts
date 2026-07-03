@@ -87,4 +87,11 @@ export const api = {
 
   // Analytics
   getDashboard: () => apiFetch('/analytics/dashboard'),
+
+  // Finance
+  getFinanceDashboard: () => apiFetch('/mock/finance/dashboard'),
+  getInvoices: (status?: string) => apiFetch('/mock/finance/invoices' + (status ? '?status=' + status : '')),
+  getInvoiceDetail: (id: string) => apiFetch('/mock/finance/invoices/' + id),
+  registerPayment: (id: string, data: any) => apiFetch('/mock/finance/invoices/' + id + '/payments', { method: 'POST', body: JSON.stringify(data) }),
+  createInvoice: (data: any) => apiFetch('/mock/finance/invoices', { method: 'POST', body: JSON.stringify(data) }),
 }
