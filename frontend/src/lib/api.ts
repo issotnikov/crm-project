@@ -94,4 +94,11 @@ export const api = {
   getInvoiceDetail: (id: string) => apiFetch('/mock/finance/invoices/' + id),
   registerPayment: (id: string, data: any) => apiFetch('/mock/finance/invoices/' + id + '/payments', { method: 'POST', body: JSON.stringify(data) }),
   createInvoice: (data: any) => apiFetch('/mock/finance/invoices', { method: 'POST', body: JSON.stringify(data) }),
+
+  // Documents
+  getDocuments: (type?: string, status?: string) => apiFetch('/mock/documents/' + (type || status ? '?' + (type ? 'type=' + type : '') + (type && status ? '&' : '') + (status ? 'status=' + status : '') : '')),
+  getDocumentDetail: (id: string) => apiFetch('/mock/documents/' + id),
+  getTemplates: () => apiFetch('/mock/documents/templates'),
+  generateDocument: (data: any) => apiFetch('/mock/documents/generate', { method: 'POST', body: JSON.stringify(data) }),
+  sendDocument: (id: string) => apiFetch('/mock/documents/' + id + '/send', { method: 'POST' }),
 }

@@ -54,6 +54,7 @@ def create_app() -> FastAPI:
     from app.modules.mock_api import router as mock_router
     from app.modules.tasks_mock import router as tasks_mock_router
     from app.modules.finance_mock import router as finance_mock_router
+    from app.modules.documents_mock import router as documents_mock_router
     from app.modules.crm.api import router as crm_router
     from app.modules.finance.api import router as finance_router
     from app.modules.documents.api import router as documents_router
@@ -67,9 +68,10 @@ def create_app() -> FastAPI:
     app.include_router(mock_router, prefix=api_prefix, tags=["Mock Data"])
     app.include_router(tasks_mock_router, prefix=api_prefix, tags=["Tasks"])
     app.include_router(finance_mock_router, prefix=api_prefix, tags=["Finance"])
+    app.include_router(documents_mock_router, prefix=api_prefix, tags=["Documents"])
     app.include_router(crm_router, prefix=api_prefix, tags=["CRM"])
     app.include_router(finance_router, prefix=api_prefix, tags=["Finance (stub)"])
-    app.include_router(documents_router, prefix=api_prefix, tags=["Documents"])
+    app.include_router(documents_router, prefix=api_prefix, tags=["Documents (stub)"])
     app.include_router(analytics_router, prefix=api_prefix, tags=["Analytics"])
     app.include_router(public_router, prefix=api_prefix, tags=["Public"])
     app.include_router(webhook_router, prefix=api_prefix, tags=["Webhooks"])
