@@ -179,4 +179,4 @@ function PlaceholderPage({ title, icon }: { title: string; icon: string }) {
   )
 }
 
-export function AnalyticsPage() { return <PlaceholderPage title="Аналитика" icon="📈" /> }
+export function AnalyticsPage() { return null as any }

@@ -101,4 +101,12 @@ export const api = {
   getTemplates: () => apiFetch('/mock/documents/templates'),
   generateDocument: (data: any) => apiFetch('/mock/documents/generate', { method: 'POST', body: JSON.stringify(data) }),
   sendDocument: (id: string) => apiFetch('/mock/documents/' + id + '/send', { method: 'POST' }),
+
+  // Analytics
+  getAnalyticsOverview: (period?: string) => apiFetch('/mock/analytics/overview' + (period ? '?period=' + period : '')),
+  getAnalyticsFunnel: (period?: string) => apiFetch('/mock/analytics/funnel' + (period ? '?period=' + period : '')),
+  getAnalyticsManagers: (period?: string) => apiFetch('/mock/analytics/managers' + (period ? '?period=' + period : '')),
+  getAnalyticsSources: (period?: string) => apiFetch('/mock/analytics/sources' + (period ? '?period=' + period : '')),
+  getAnalyticsRevenue: (period?: string) => apiFetch('/mock/analytics/revenue-chart' + (period ? '?period=' + period : '')),
+  getActivityHeatmap: () => apiFetch('/mock/analytics/activity-heatmap'),
 }
