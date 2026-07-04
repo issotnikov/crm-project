@@ -28,6 +28,14 @@ python-telegram-bot>=21.6
 # Email
 aiosmtplib>=3.0.0
 
+# LDAP / Active Directory
+ldap3>=2.9.0
+asyncstdlib>=3.13.0
+
+# OIDC / Keycloak
+authlib>=1.4.0
+itsdangerous>=2.2.0
+
 # Document generation
 openpyxl>=3.1.0
 python-docx>=1.1.0
