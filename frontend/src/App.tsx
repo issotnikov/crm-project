@@ -12,6 +12,8 @@ import { FinancePage } from './pages/FinancePage'
 import { DocumentsPage } from './pages/DocumentsPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
 import { ReminderToasts } from './components/ReminderToasts'
+import { GlobalSearch } from './components/GlobalSearch'
+import { NotificationCenter } from './components/NotificationCenter'
 
 type PageKey = 'dashboard' | 'leads' | 'deals' | 'customers' | 'tasks' | 'calendar' | 'finance' | 'documents' | 'analytics' | 'users' | 'profile'
 
@@ -88,18 +90,12 @@ function Sidebar({ activePage, onNavigate, user, onLogout }: {
   )
 }
 
-function TopBar({ title, subtitle }: { title: string; subtitle: string }) {
+function TopBar({ title, subtitle, onNavigate }: { title: string; subtitle: string; onNavigate: (p: any) => void }) {
   return (
     <div className="flex items-center gap-4 mb-6">
-      <div className="flex-1 max-w-md relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">🔍</span>
-        <input type="text" placeholder="Поиск клиентов, сделок, задач..." className="w-full bg-[#2D2A6E] border border-[#312E81] rounded-lg pl-10 pr-16 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500" />
-        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs bg-[#1E1B4B] border border-[#312E81] rounded px-1.5 py-0.5 text-gray-500">⌘K</span>
-      </div>
-      <button className="w-9 h-9 rounded-lg bg-[#1E1B4B] border border-[#312E81] flex items-center justify-center text-gray-400 hover:text-white transition-colors relative">
-        🔔<span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
-      </button>
-      <div className="text-xs text-gray-500">{new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
+      <GlobalSearch onNavigate={onNavigate} />
+      <NotificationCenter onNavigate={onNavigate} />
+      <div className="text-xs text-gray-500 hidden md:block">{new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
     </div>
   )
 }
@@ -208,7 +204,7 @@ function App() {
       <div className="flex">
         <Sidebar activePage={page} onNavigate={setPage} user={user} onLogout={() => { clearTokens(); setAuthed(false); setPage('dashboard') }} />
         <div className="flex-1 p-8 min-w-0">
-          <TopBar title={page} subtitle={subtitles[page]} />
+          <TopBar title={page} subtitle={subtitles[page]} onNavigate={setPage} />
           {page === 'dashboard' && <DashboardPage />}
           {page === 'leads' && <LeadsPage />}
           {page === 'deals' && <DealsPage />}
