@@ -15,6 +15,23 @@ interface Customer {
 }
 
 const STATUS_LABELS: Record<string, string> = { active: 'Активный', vip: 'VIP', inactive: 'Неактивный', blacklist: 'Чёрный список' }
+const DOC_TYPE_CONFIG: Record<string, { icon: string; label: string; color: string; bg: string }> = {
+  quote: { icon: '📋', label: 'КП', color: 'text-blue-400', bg: 'bg-blue-500/15' },
+  contract: { icon: '📜', label: 'Договор', color: 'text-purple-400', bg: 'bg-purple-500/15' },
+  invoice: { icon: '🧾', label: 'Счёт', color: 'text-amber-400', bg: 'bg-amber-500/15' },
+  act: { icon: '✅', label: 'Акт', color: 'text-emerald-400', bg: 'bg-emerald-500/15' },
+  specification: { icon: '📐', label: 'Спецификация', color: 'text-cyan-400', bg: 'bg-cyan-500/15' },
+  founding: { icon: '🏛️', label: 'Учредительные', color: 'text-rose-400', bg: 'bg-rose-500/15' },
+}
+const DOC_STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  draft: { label: 'Черновик', color: 'text-gray-400', bg: 'bg-gray-500/15' },
+  generated: { label: 'Создан', color: 'text-indigo-400', bg: 'bg-indigo-500/15' },
+  sent: { label: 'Отправлен', color: 'text-blue-400', bg: 'bg-blue-500/15' },
+  signed: { label: 'Подписан', color: 'text-emerald-400', bg: 'bg-emerald-500/15' },
+  paid: { label: 'Оплачен', color: 'text-emerald-400', bg: 'bg-emerald-500/15' },
+  verified: { label: 'Проверен', color: 'text-emerald-400', bg: 'bg-emerald-500/15' },
+  expires_soon: { label: 'Скоро истекает', color: 'text-amber-400', bg: 'bg-amber-500/15' },
+}
 const SOURCE_ICONS: Record<string, string> = { telegram: '💬', email: '✉️', phone: '📞', web_form: '🌐', manual: '✏️', referral: '🤝' }
 
 function formatRevenue(n: number): string {
@@ -136,12 +153,20 @@ function CustomerDetail({ customer: c }: { customer: Customer }) {
   // Find primary contact or first one
   const primaryIdx = c.contacts?.findIndex(ct => ct.is_primary) ?? -1
   const [activeContactIdx, setActiveContactIdx] = useState(primaryIdx >= 0 ? primaryIdx : 0)
+  const [docs, setDocs] = useState<any[]>([])
+  const [docsLoading, setDocsLoading] = useState(false)
 
   // Reset when customer changes
   useEffect(() => {
     const idx = c.contacts?.findIndex(ct => ct.is_primary) ?? -1
     setActiveContactIdx(idx >= 0 ? idx : 0)
-  }, [c.id])
+    // Load documents for this customer
+    setDocsLoading(true)
+    api.getDocuments(undefined, undefined).then((d: any) => {
+      const customerDocs = (d.data || []).filter((doc: any) => doc.customer_name === c.name)
+      setDocs(customerDocs)
+    }).catch(() => {}).finally(() => setDocsLoading(false))
+  }, [c.id, c.name])
 
   const activeContact: Contact | null = (c.contacts && c.contacts.length > 0) ? c.contacts[activeContactIdx] : null
   const hasPhone = activeContact?.phone
@@ -284,6 +309,38 @@ function CustomerDetail({ customer: c }: { customer: Customer }) {
           </button>
         </div>
       )}
+
+      {/* ── Documents ─────────────────────────────────────────── */}
+      <div>
+        <div className="text-xs text-gray-500 uppercase mb-3 flex items-center gap-2">
+          📄 Документы клиента
+          {docs.length > 0 && <span className="text-xs bg-[#2D2A6E] px-2 py-0.5 rounded-full">{docs.length}</span>}
+        </div>
+        {docsLoading ? (
+          <div className="text-sm text-gray-500 py-2">Загрузка документов...</div>
+        ) : docs.length === 0 ? (
+          <div className="text-sm text-gray-600 py-2">Нет документов</div>
+        ) : (
+          <div className="space-y-1.5">
+            {docs.map((doc) => {
+              const tc = DOC_TYPE_CONFIG[doc.type] || { icon: '📄', label: doc.type, color: '', bg: '' }
+              const sc = DOC_STATUS_CONFIG[doc.status] || DOC_STATUS_CONFIG.draft
+              return (
+                <div key={doc.id}
+                  onClick={() => window.open('/api/v1/mock/documents/' + doc.id, '_blank')}
+                  className="flex items-center gap-3 bg-[#1E1B4B] border border-[#312E81] rounded-lg p-2.5 hover:border-indigo-700 hover:bg-[#252161] transition-all cursor-pointer">
+                  <div className={"w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0 " + tc.bg}>{tc.icon}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{doc.name}</div>
+                    <div className="text-xs text-gray-500">{doc.template_name} · v{doc.version}</div>
+                  </div>
+                  <span className={"text-xs px-2 py-0.5 rounded flex-shrink-0 " + sc.bg + " " + sc.color}>{sc.label}</span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
 
       {/* ── Interactions history ─────────────────────────────── */}
       {c.interactions && c.interactions.length > 0 && (

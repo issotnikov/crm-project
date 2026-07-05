@@ -217,6 +217,54 @@ export function DocumentsPage() {
   )
 }
 
+function downloadPDF(doc: DocItem) {
+  // Generate a printable PDF via browser print dialog (Ctrl+P → Save as PDF)
+  // Also works as quick print preview
+  const win = window.open('', '_blank', 'width=800,height=900')
+  if (!win) { alert('Разрешите всплывающие окна для скачивания PDF'); return }
+  const escaped = (doc.preview_text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const lines = escaped.split('\n').map((l: string) => l.trim() === '' ? '<br>' : `<div>${l}</div>`).join('')
+  const typeLabel = (TYPE_CONFIG[doc.type] || { label: doc.type }).label
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${doc.name}</title>
+  <style>
+    @page { margin: 2cm; }
+    body { font-family: 'Times New Roman', serif; font-size: 12pt; line-height: 1.6; color: #1a1a1a; max-width: 680px; margin: 0 auto; padding: 40px 20px; }
+    .doc-header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #333; }
+    .doc-header h1 { font-size: 14pt; text-transform: uppercase; letter-spacing: 2px; color: #666; margin: 0 0 5px; }
+    .doc-header h2 { font-size: 16pt; margin: 0; }
+    .doc-body { white-space: pre-wrap; font-family: 'Courier New', monospace; font-size: 11pt; }
+    .doc-meta { margin-top: 40px; padding-top: 15px; border-top: 1px solid #ccc; font-size: 9pt; color: #999; display: flex; justify-content: space-between; }
+    @media print { .no-print { display: none; } body { padding: 0; } }
+    .print-btn { position: fixed; top: 20px; right: 20px; background: #4F46E5; color: white; border: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+    .print-btn:hover { background: #4338CA; }
+  </style></head><body>
+    <div class="doc-header">
+      <h1>${typeLabel}</h1>
+      <h2>${doc.name.replace(/_/g, ' ').replace(/\.pdf$/i, '')}</h2>
+    </div>
+    <div class="doc-body">${lines}</div>
+    <div class="doc-meta">
+      <span>Клиент: ${doc.customer_name || '—'}</span>
+      <span>Версия: ${doc.version}</span>
+      <span>Создан: ${new Date(doc.created_at).toLocaleDateString('ru-RU')}</span>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()">🖨 Скачать PDF</button>
+  </body></html>`)
+  win.document.close()
+}
+
+function downloadText(doc: DocItem) {
+  const blob = new Blob([doc.preview_text || ''], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = doc.name.replace(/\.pdf$/i, '.txt')
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
 function DocumentDetail({ doc: d, onClose }: { doc: DocItem; onClose: () => void }) {
   const tc = TYPE_CONFIG[d.type] || { icon: '📄', label: d.type, color: '', bg: '' }
   const sc = STATUS_CONFIG[d.status] || STATUS_CONFIG.draft
@@ -276,8 +324,8 @@ function DocumentDetail({ doc: d, onClose }: { doc: DocItem; onClose: () => void
             ✉️ Отправить клиенту
           </button>
         )}
-        <button className="bg-[#2D2A6E] hover:bg-[#363278] text-gray-300 text-sm px-4 py-2 rounded-lg transition-colors">⬇ Скачать PDF</button>
-        <button className="bg-[#2D2A6E] hover:bg-[#363278] text-gray-300 text-sm px-4 py-2 rounded-lg transition-colors">🔄 Новая версия</button>
+        <button onClick={() => downloadPDF(d)} className="bg-[#2D2A6E] hover:bg-[#363278] text-gray-300 text-sm px-4 py-2 rounded-lg transition-colors">⬇ Скачать PDF</button>
+        <button onClick={() => downloadText(d)} className="bg-[#2D2A6E] hover:bg-[#363278] text-gray-300 text-sm px-4 py-2 rounded-lg transition-colors">📝 Скачать .txt</button>
       </div>
 
       {/* Versions */}
