@@ -11,7 +11,7 @@ interface DocItem {
   status: string; version: number; file_format: string; file_size: number
   created_by_name: string; created_at: string; updated_at: string
   sent_at: string | null; signed_at: string | null
-  versions: DocVersion[]; preview_text: string
+  versions: DocVersion[]; preview_text: string; expiry_date?: string | null
 }
 interface Template {
   id: string; name: string; type: string; description: string
@@ -25,6 +25,7 @@ const TYPE_CONFIG: Record<string, { icon: string; label: string; color: string; 
   invoice: { icon: '🧾', label: 'Счёт', color: 'text-amber-400', bg: 'bg-amber-500/15' },
   act: { icon: '✅', label: 'Акт', color: 'text-emerald-400', bg: 'bg-emerald-500/15' },
   specification: { icon: '📐', label: 'Спецификация', color: 'text-cyan-400', bg: 'bg-cyan-500/15' },
+  founding: { icon: '🏛️', label: 'Учредительные', color: 'text-rose-400', bg: 'bg-rose-500/15' },
 }
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   draft: { label: 'Черновик', color: 'text-gray-400', bg: 'bg-gray-500/15' },
@@ -32,6 +33,8 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }
   sent: { label: 'Отправлен', color: 'text-blue-400', bg: 'bg-blue-500/15' },
   signed: { label: 'Подписан', color: 'text-emerald-400', bg: 'bg-emerald-500/15' },
   paid: { label: 'Оплачен', color: 'text-emerald-400', bg: 'bg-emerald-500/15' },
+  verified: { label: 'Проверен', color: 'text-emerald-400', bg: 'bg-emerald-500/15' },
+  expires_soon: { label: 'Скоро истекает', color: 'text-amber-400', bg: 'bg-amber-500/15' },
 }
 
 function formatSize(bytes: number): string {
@@ -45,9 +48,11 @@ function formatDate(iso: string): string {
 
 export function DocumentsPage() {
   const [docs, setDocs] = useState<DocItem[]>([])
+  const [customers, setCustomers] = useState<any[]>([])
   const [templates, setTemplates] = useState<Template[]>([])
   const [loading, setLoading] = useState(true)
   const [typeFilter, setTypeFilter] = useState('all')
+  const [customerFilter, setCustomerFilter] = useState('all')
   const [selected, setSelected] = useState<DocItem | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [showGenerate, setShowGenerate] = useState(false)
@@ -58,9 +63,10 @@ export function DocumentsPage() {
   const loadAll = async () => {
     setLoading(true)
     try {
-      const [docData, tplData] = await Promise.all([api.getDocuments(), api.getTemplates()])
+      const [docData, tplData, custData] = await Promise.all([api.getDocuments(), api.getTemplates(), api.getCustomers()])
       setDocs(docData.data || [])
       setTemplates(tplData.data || [])
+      setCustomers(custData.data || [])
     } catch { setDocs([]); setTemplates([]) }
     finally { setLoading(false) }
   }
@@ -72,7 +78,8 @@ export function DocumentsPage() {
     finally { setDetailLoading(false) }
   }
 
-  const filtered = typeFilter === 'all' ? docs : docs.filter(d => d.type === typeFilter)
+  let filtered = typeFilter === 'all' ? docs : docs.filter(d => d.type === typeFilter)
+  if (customerFilter !== 'all') filtered = filtered.filter(d => d.customer_name === customerFilter)
   const counts: Record<string, number> = {}
   docs.forEach(d => { counts[d.type] = (counts[d.type] || 0) + 1 })
 
@@ -111,6 +118,7 @@ export function DocumentsPage() {
               { key: 'contract', label: '📜 Договоры', count: counts.contract || 0 },
               { key: 'invoice', label: '🧾 Счета', count: counts.invoice || 0 },
               { key: 'act', label: '✅ Акты', count: counts.act || 0 },
+              { key: 'founding', label: '🏛️ Учредительные', count: counts.founding || 0 },
             ].map((tab) => (
               <button key={tab.key} onClick={() => setTypeFilter(tab.key)}
                 className={"px-3 py-1.5 rounded-lg text-sm transition-colors " + (typeFilter === tab.key ? 'bg-indigo-600 text-white' : 'bg-[#1E1B4B] text-gray-400 hover:text-white')}>
@@ -218,6 +226,11 @@ function DocumentDetail({ doc: d, onClose }: { doc: DocItem; onClose: () => void
       {/* Status & meta */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className={"px-2 py-0.5 rounded text-xs font-medium " + sc.bg + " " + sc.color}>{sc.label}</span>
+        {d.expiry_date && (
+          <span className={"text-xs " + (new Date(d.expiry_date) < new Date(Date.now() + 30*24*60*60*1000) ? 'text-amber-400 font-medium' : 'text-gray-500')}>
+            📅 Действует до: {new Date(d.expiry_date).toLocaleDateString('ru-RU')}
+          </span>
+        )}
         <span className={"px-2 py-0.5 rounded text-xs font-medium " + tc.bg + " " + tc.color}>{tc.icon} {tc.label}</span>
         <span className="text-xs text-gray-500">v{d.version}</span>
         <span className="text-xs text-gray-500">{d.file_format.toUpperCase()} · {formatSize(d.file_size)}</span>
