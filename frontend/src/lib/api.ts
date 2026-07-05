@@ -74,6 +74,12 @@ export const api = {
   getDeals: (status?: string) => apiFetch(`/mock/deals${status ? `?status=${status}` : ''}`),
   getDealDetail: (id: string) => apiFetch(`/mock/deals/${id}`),
 
+  // Contacts
+  getContacts: (search?: string, customerId?: string) => apiFetch(`/mock/contacts/${search ? '?search=' + encodeURIComponent(search) : ''}${customerId ? (search ? '&' : '?') + 'customer_id=' + customerId : ''}`),
+  getContactDetail: (id: string) => apiFetch('/mock/contacts/' + id),
+  createContact: (data: any) => apiFetch('/mock/contacts/', { method: 'POST', body: JSON.stringify(data) }),
+  updateContact: (id: string, data: any) => apiFetch('/mock/contacts/' + id, { method: 'PATCH', body: JSON.stringify(data) }),
+
   // Tasks
   getTasks: () => apiFetch('/mock/tasks/'),
   getTaskDetail: (id: string) => apiFetch(`/mock/tasks/${id}`),

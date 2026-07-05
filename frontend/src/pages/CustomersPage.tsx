@@ -4,7 +4,7 @@ import { Drawer, Badge, Modal, FormField, inputClass } from '../components/ui'
 
 interface Contact {
   id: string; first_name: string; last_name: string; position: string | null
-  phone: string | null; email: string | null; telegram: string | null; is_primary: boolean
+  phone: string | null; email: string | null; telegram: string | null; max_messenger: string | null; is_primary: boolean
 }
 interface Customer {
   id: string; name: string; inn: string | null; industry: string | null
@@ -150,6 +150,7 @@ function CustomerDetail({ customer: c }: { customer: Customer }) {
                   {ct.phone && <span className="text-gray-400">📱 {ct.phone}</span>}
                   {ct.email && <span className="text-gray-400">✉️ {ct.email}</span>}
                   {ct.telegram && <span className="text-gray-400">💬 {ct.telegram}</span>}
+                  {ct.max_messenger && <span className="text-gray-400">✉️ MAX: {ct.max_messenger}</span>}
                 </div>
               </div>
             ))}
@@ -161,6 +162,7 @@ function CustomerDetail({ customer: c }: { customer: Customer }) {
         <button className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg transition-colors">📞 Позвонить</button>
         <button className="bg-[#2D2A6E] hover:bg-[#363278] text-gray-300 text-sm px-4 py-2 rounded-lg transition-colors">✉️ Email</button>
         <button className="bg-[#2D2A6E] hover:bg-[#363278] text-gray-300 text-sm px-4 py-2 rounded-lg transition-colors">💬 Telegram</button>
+        <button className="bg-[#2D2A6E] hover:bg-[#363278] text-gray-300 text-sm px-4 py-2 rounded-lg transition-colors">✉️ MAX</button>
         <button className="bg-[#2D2A6E] hover:bg-[#363278] text-gray-300 text-sm px-4 py-2 rounded-lg transition-colors">+ Сделка</button>
       </div>
 
@@ -188,7 +190,7 @@ function CustomerDetail({ customer: c }: { customer: Customer }) {
 }
 
 function CreateCustomerModal({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: () => void }) {
-  const [form, setForm] = useState({ name: '', inn: '', phone: '', email: '', telegram: '', industry: '' })
+  const [form, setForm] = useState({ name: '', inn: '', phone: '', email: '', telegram: '', max_messenger: '', industry: '' })
   return (
     <Modal open={open} onClose={onClose} title="Новый клиент">
       <div className="space-y-4">
@@ -200,6 +202,7 @@ function CreateCustomerModal({ open, onClose, onCreated }: { open: boolean; onCl
         <div className="text-xs text-gray-500 uppercase mt-2">Контактное лицо</div>
         <FormField label="Телефон"><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={inputClass} placeholder="+7..." /></FormField>
         <FormField label="Email"><input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={inputClass} placeholder="user@company.ru" /></FormField>
+        <FormField label="MAX мессенджер"><input value={form.max_messenger || ""} onChange={(e) => setForm({ ...form, max_messenger: e.target.value })} className={inputClass} placeholder="username.max" /></FormField>
         <FormField label="Telegram"><input value={form.telegram} onChange={(e) => setForm({ ...form, telegram: e.target.value })} className={inputClass} placeholder="@username" /></FormField>
       </div>
       <div className="flex gap-3 mt-6">

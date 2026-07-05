@@ -42,7 +42,7 @@ MOCK_CUSTOMERS = [
                 "position": "Генеральный директор",
                 "phone": "+7 (495) 123-45-67",
                 "email": "i.ivanov@romashka.ru",
-                "telegram": "@ivanov_ceo",
+                "telegram": "@ivanov_ceo", "max_messenger": "ivanov.max",
                 "is_primary": True,
             },
             {
@@ -87,7 +87,7 @@ MOCK_CUSTOMERS = [
                 "position": "Индивидуальный предприниматель",
                 "phone": "+7 (916) 555-12-34",
                 "email": "petrov.av@mail.ru",
-                "telegram": "@alexey_petrov",
+                "telegram": "@alexey_petrov", "max_messenger": "petrov.max",
                 "is_primary": True,
             },
         ],
@@ -119,7 +119,7 @@ MOCK_CUSTOMERS = [
                 "position": "IT-директор",
                 "phone": "+7 (495) 333-22-11",
                 "email": "s.morozov@technologic.ru",
-                "telegram": "@smorozov_it",
+                "telegram": "@smorozov_it", "max_messenger": "morozov.max",
                 "is_primary": True,
             },
             {
@@ -139,7 +139,7 @@ MOCK_CUSTOMERS = [
                 "position": "Руководитель отдела продаж",
                 "phone": "+7 (495) 333-22-13",
                 "email": "d.orlov@technologic.ru",
-                "telegram": "@orlov_sales",
+                "telegram": "@orlov_sales", "max_messenger": "orlov.max",
                 "is_primary": False,
             },
         ],
@@ -173,7 +173,7 @@ MOCK_CUSTOMERS = [
                 "position": None,
                 "phone": "+7 (921) 444-55-66",
                 "email": "anna@anna-design.ru",
-                "telegram": "@anna_design",
+                "telegram": "@anna_design", "max_messenger": "anna.max",
                 "is_primary": True,
             },
         ],
@@ -205,7 +205,7 @@ MOCK_CUSTOMERS = [
                 "position": "Генеральный директор",
                 "phone": "+7 (812) 555-11-22",
                 "email": "v.belyaev@gamma-trade.ru",
-                "telegram": "@belyaev_gamma",
+                "telegram": "@belyaev_gamma", "max_messenger": "belyaev.max",
                 "is_primary": True,
             },
         ],
@@ -231,7 +231,7 @@ MOCK_LEADS = [
         "created_at": HOURS_AGO(3),
         "responded_at": None,
         "sla_deadline": HOURS_AGO(-1),  # 1 hour from now
-        "contacts": [{"name": "Иван Иванов", "phone": "+7 (495) 123-45-67", "email": "i.ivanov@romashka.ru", "telegram": "@ivanov_ceo"}],
+        "contacts": [{"name": "Иван Иванов", "phone": "+7 (495) 123-45-67", "email": "i.ivanov@romashka.ru", "telegram": "@ivanov_ceo", "max_messenger": "ivanov.max"}],
     },
     {
         "id": "l1000000-0000-0000-0000-000000000002",
@@ -248,7 +248,7 @@ MOCK_LEADS = [
         "created_at": HOURS_AGO(5),
         "responded_at": None,
         "sla_deadline": HOURS_AGO(-3),
-        "contacts": [{"name": "Алексей Петров", "phone": "+7 (916) 555-12-34", "email": "petrov.av@mail.ru", "telegram": "@alexey_petrov"}],
+        "contacts": [{"name": "Алексей Петров", "phone": "+7 (916) 555-12-34", "email": "petrov.av@mail.ru", "telegram": "@alexey_petrov", "max_messenger": "petrov.max"}],
     },
     {
         "id": "l1000000-0000-0000-0000-000000000003",
@@ -265,7 +265,7 @@ MOCK_LEADS = [
         "created_at": DAYS_AGO(2),
         "responded_at": DAYS_AGO(2),
         "sla_deadline": None,
-        "contacts": [{"name": "Сергей Морозов", "phone": "+7 (495) 333-22-11", "email": "s.morozov@technologic.ru", "telegram": "@smorozov_it"}],
+        "contacts": [{"name": "Сергей Морозов", "phone": "+7 (495) 333-22-11", "email": "s.morozov@technologic.ru", "telegram": "@smorozov_it", "max_messenger": "morozov.max"}],
     },
     {
         "id": "l1000000-0000-0000-0000-000000000004",
@@ -282,7 +282,7 @@ MOCK_LEADS = [
         "created_at": HOURS_AGO(8),
         "responded_at": HOURS_AGO(6),
         "sla_deadline": None,
-        "contacts": [{"name": "Анна Смирнова", "phone": "+7 (921) 444-55-66", "email": "anna@anna-design.ru", "telegram": "@anna_design"}],
+        "contacts": [{"name": "Анна Смирнова", "phone": "+7 (921) 444-55-66", "email": "anna@anna-design.ru", "telegram": "@anna_design", "max_messenger": "anna.max"}],
     },
     {
         "id": "l1000000-0000-0000-0000-000000000005",
@@ -299,7 +299,7 @@ MOCK_LEADS = [
         "created_at": DAYS_AGO(4),
         "responded_at": DAYS_AGO(3),
         "sla_deadline": None,
-        "contacts": [{"name": "Виктор Беляев", "phone": "+7 (812) 555-11-22", "email": "v.belyaev@gamma-trade.ru", "telegram": "@belyaev_gamma"}],
+        "contacts": [{"name": "Виктор Беляев", "phone": "+7 (812) 555-11-22", "email": "v.belyaev@gamma-trade.ru", "telegram": "@belyaev_gamma", "max_messenger": "belyaev.max"}],
     },
     {
         "id": "l1000000-0000-0000-0000-000000000006",
@@ -316,7 +316,7 @@ MOCK_LEADS = [
         "created_at": DAYS_AGO(5),
         "responded_at": DAYS_AGO(5),
         "sla_deadline": None,
-        "contacts": [{"name": "Дмитрий Орлов", "phone": "+7 (495) 333-22-13", "email": "d.orlov@technologic.ru", "telegram": "@orlov_sales"}],
+        "contacts": [{"name": "Дмитрий Орлов", "phone": "+7 (495) 333-22-13", "email": "d.orlov@technologic.ru", "telegram": "@orlov_sales", "max_messenger": "orlov.max"}],
     },
     {
         "id": "l1000000-0000-0000-0000-000000000007",
@@ -333,7 +333,7 @@ MOCK_LEADS = [
         "created_at": DAYS_AGO(10),
         "responded_at": DAYS_AGO(10),
         "sla_deadline": None,
-        "contacts": [{"name": "Алексей Петров", "phone": "+7 (916) 555-12-34", "email": "petrov.av@mail.ru", "telegram": "@alexey_petrov"}],
+        "contacts": [{"name": "Алексей Петров", "phone": "+7 (916) 555-12-34", "email": "petrov.av@mail.ru", "telegram": "@alexey_petrov", "max_messenger": "petrov.max"}],
     },
     {
         "id": "l1000000-0000-0000-0000-000000000008",

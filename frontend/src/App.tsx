@@ -3,6 +3,7 @@ import { api, getToken, clearTokens, getUser } from './lib/api'
 import { LoginPage } from './pages/LoginPage'
 import { LeadsPage } from './pages/LeadsPage'
 import { CustomersPage } from './pages/CustomersPage'
+import { ContactsPage } from './pages/ContactsPage'
 import { TasksPage } from './pages/TasksPage'
 import { CalendarPage } from './pages/CalendarPage'
 import { ProfilePage } from './pages/ProfilePage'
@@ -16,7 +17,7 @@ import { ReminderToasts } from './components/ReminderToasts'
 import { GlobalSearch } from './components/GlobalSearch'
 import { NotificationCenter } from './components/NotificationCenter'
 
-type PageKey = 'dashboard' | 'leads' | 'deals' | 'customers' | 'tasks' | 'calendar' | 'finance' | 'documents' | 'analytics' | 'integrations' | 'users' | 'profile'
+type PageKey = 'dashboard' | 'leads' | 'deals' | 'customers' | 'contacts' | 'tasks' | 'calendar' | 'finance' | 'documents' | 'analytics' | 'integrations' | 'users' | 'profile'
 
 interface DashboardData {
   kpis: { new_leads: number; active_deals: number; revenue_month: number; overdue_tasks: number }
@@ -35,6 +36,7 @@ function getNavItems(userRole: string) {
     { key: 'leads', icon: '📥', label: 'Заявки', badge: 8 },
     { key: 'deals', icon: '🎯', label: 'Сделки' },
     { key: 'customers', icon: '👥', label: 'Клиенты' },
+    { key: 'contacts', icon: '📇', label: 'Контакты' },
     { key: 'tasks', icon: '✅', label: 'Задачи', badge: 5 },
     { key: 'calendar', icon: '📅', label: 'Календарь' },
     { key: 'finance', icon: '💰', label: 'Финансы' },
@@ -198,7 +200,7 @@ function App() {
   const user = getUser() || { name: 'Пользователь', email: '', role: 'user' }
   const subtitles: Record<PageKey, string> = {
     dashboard: 'Сводка за день', leads: 'Входящие заявки', deals: 'Воронка продаж',
-    customers: 'База клиентов', tasks: 'Задачи и контроль', calendar: 'Календарь',
+    customers: 'База клиентов', contacts: 'Контакты клиентов', tasks: 'Задачи и контроль', calendar: 'Календарь',
     finance: 'Счета и оплаты', documents: 'Документы', analytics: 'Отчёты',
     integrations: 'Интеграции и API', users: 'Управление пользователями', profile: 'Личные данные',
   }
@@ -213,6 +215,7 @@ function App() {
           {page === 'leads' && <LeadsPage />}
           {page === 'deals' && <DealsPage />}
           {page === 'customers' && <CustomersPage />}
+          {page === 'contacts' && <ContactsPage />}
           {page === 'tasks' && <TasksPage />}
           {page === 'calendar' && <CalendarPage />}
           {page === 'finance' && <FinancePage />}
