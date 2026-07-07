@@ -151,7 +151,7 @@ export function LeadsPage() {
         {detailLoading ? (
           <div className="text-center py-10 text-gray-400">Загрузка...</div>
         ) : selectedLead ? (
-          <LeadDetail lead={selectedLead} />
+          <LeadDetail lead={selectedLead} onConverted={() => { setSelectedLead(null); loadLeads() }} />
         ) : null}
       </Drawer>
 
@@ -161,7 +161,9 @@ export function LeadsPage() {
   )
 }
 
-function LeadDetail({ lead }: { lead: Lead }) {
+function LeadDetail({ lead, onConverted }: { lead: Lead; onConverted?: () => void }) {
+  const [converting, setConverting] = useState(false)
+  const [converted, setConverted] = useState(false)
   return (
     <div className="space-y-5">
       {/* Status & meta */}
@@ -199,10 +201,41 @@ function LeadDetail({ lead }: { lead: Lead }) {
 
       {/* Actions */}
       <div className="flex gap-2 flex-wrap">
-        <button className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg transition-colors">📞 Позвонить</button>
-        <button className="bg-[#2D2A6E] hover:bg-[#363278] text-gray-300 text-sm px-4 py-2 rounded-lg transition-colors">✉️ Написать</button>
-        <button className="bg-[#2D2A6E] hover:bg-[#363278] text-gray-300 text-sm px-4 py-2 rounded-lg transition-colors">💬 Telegram</button>
-        {lead.status === 'new' && <button className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm px-4 py-2 rounded-lg transition-colors">Конвертировать в сделку</button>}
+        {lead.contacts?.some(c => c.phone) && (
+          <a href={"tel:" + (lead.contacts.find(c => c.phone)?.phone || "").replace(/[^+\d]/g, '')}
+             className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-1.5 cursor-pointer">
+            📞 Позвонить
+          </a>
+        )}
+        {lead.contacts?.some(c => c.email) && (
+          <a href={"mailto:" + lead.contacts.find(c => c.email)?.email}
+             className="bg-[#2D2A6E] hover:bg-[#363278] text-gray-300 text-sm px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-1.5 cursor-pointer">
+            ✉️ Написать
+          </a>
+        )}
+        {lead.contacts?.some(c => c.telegram) && (
+          <a href={"https://t.me/" + (lead.contacts.find(c => c.telegram)?.telegram || "").replace('@', '')}
+             target="_blank" rel="noopener noreferrer"
+             className="bg-[#2D2A6E] hover:bg-[#363278] text-gray-300 text-sm px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-1.5 cursor-pointer">
+            💬 Telegram
+          </a>
+        )}
+        {lead.status !== 'converted' && lead.status !== 'rejected' && !converted && (
+          <button
+            onClick={async () => {
+              setConverting(true)
+              try { await api.convertLead(lead.id); setConverted(true) }
+              catch { /* mock ok */ }
+              finally { setConverting(false) }
+            }}
+            disabled={converting}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm px-4 py-2 rounded-lg transition-colors cursor-pointer disabled:opacity-50">
+            {converting ? '⏳ Конвертация...' : 'Конвертировать в сделку'}
+          </button>
+        )}
+        {converted && (
+          <span className="text-sm text-emerald-400 font-medium">✅ Конвертировано в сделку!</span>
+        )}
       </div>
 
       {/* Customer interactions timeline */}

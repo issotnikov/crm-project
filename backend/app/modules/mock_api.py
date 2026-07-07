@@ -581,6 +581,45 @@ async def mock_deal_detail(deal_id: str):
     return {"error": "Not found"}, 404
 
 
+@router.post("/leads/{lead_id}/convert")
+async def convert_lead_to_deal(lead_id: str):
+    """Convert a lead to a deal (mock)."""
+    # Find the lead
+    lead = None
+    for l in MOCK_LEADS:
+        if l["id"] == lead_id:
+            lead = l
+            break
+    if not lead:
+        return {"error": "Lead not found"}, 404
+
+    # Update lead status
+    lead["status"] = "converted"
+
+    # Create a new deal from the lead
+    import uuid as _uuid
+    new_deal = {
+        "id": f"d_{_uuid.uuid4().hex[:8]}",
+        "title": lead["title"],
+        "amount": 100000,
+        "customer_id": lead.get("customer_id"),
+        "customer_name": lead.get("customer_name"),
+        "stage_id": "b1000000-0000-0000-0000-000000000001",
+        "stage_name": "Новый",
+        "stage_order": 1,
+        "status": "open",
+        "probability": 50,
+        "assigned_to_name": lead.get("assigned_to_name"),
+        "description": lead.get("description", ""),
+        "expected_close_date": None,
+        "tasks": [],
+        "documents": [],
+        "lead_id": lead_id,
+    }
+    MOCK_DEALS.insert(0, new_deal)
+    return {"ok": True, "lead": lead, "deal": new_deal}
+
+
 @router.get("/pipelines")
 async def mock_pipelines():
     """Get pipeline stages."""

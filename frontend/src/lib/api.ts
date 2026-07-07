@@ -71,6 +71,7 @@ export const api = {
   getCustomerDetail: (id: string) => apiFetch(`/mock/customers/${id}`),
   getLeads: (status?: string, source?: string) => apiFetch(`/mock/leads${status ? `?status=${status}` : ''}`),
   getLeadDetail: (id: string) => apiFetch(`/mock/leads/${id}`),
+  convertLead: (id: string) => apiFetch(`/mock/leads/${id}/convert`, { method: 'POST' }),
   getDeals: (status?: string) => apiFetch(`/mock/deals${status ? `?status=${status}` : ''}`),
   getDealDetail: (id: string) => apiFetch(`/mock/deals/${id}`),
 
