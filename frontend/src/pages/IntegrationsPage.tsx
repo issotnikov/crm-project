@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react'
 import { api } from '../lib/api'
 import { Badge } from '../components/ui'
 
-type Tab = 'api' | 'ldap' | 'oidc'
+type Tab = 'ldap' | 'oidc' | '1c' | 'api'
 
 export function IntegrationsPage() {
-  const [tab, setTab] = useState<Tab>('api')
+  const [tab, setTab] = useState<Tab>('ldap')
 
   return (
     <div>
@@ -16,7 +16,7 @@ export function IntegrationsPage() {
 
       <div className="flex gap-2 mb-6 flex-wrap">
         {([
-          ['api', '📚 API каталог'], ['ldap', '🔑 LDAP / AD'], ['oidc', '🔐 OIDC / Keycloak'],
+          ['ldap', '🔑 LDAP / AD'], ['oidc', '🔐 OIDC / Keycloak'], ['1c', '🧩 1С'], ['api', '📚 API каталог'],
         ] as [Tab, string][]).map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)}
             className={"px-4 py-2 rounded-lg text-sm font-medium transition-colors " + (tab === key ? 'bg-indigo-600 text-white' : 'bg-[#1E1B4B] text-gray-400 hover:text-white')}>
@@ -25,9 +25,207 @@ export function IntegrationsPage() {
         ))}
       </div>
 
-      {tab === 'api' && <ApiCatalogTab />}
       {tab === 'ldap' && <LdapTab />}
       {tab === 'oidc' && <OidcTab />}
+      {tab === '1c' && <OneCTab />}
+      {tab === 'api' && <ApiCatalogTab />}
+    </div>
+  )
+}
+
+// ── 1C Tab ────────────────────────────────────────────────────
+
+function OneCTab() {
+  const [status, setStatus] = useState<any>(null)
+  const [presets, setPresets] = useState<Record<string, any>>({})
+  const [selectedPreset, setSelectedPreset] = useState('accounting')
+  const [testResult, setTestResult] = useState<any>(null)
+  const [testing, setTesting] = useState(false)
+  const [syncResult, setSyncResult] = useState<any>(null)
+  const [syncing, setSyncing] = useState('')
+
+  useEffect(() => {
+    fetch('/api/v1/integrations/1c/status').then(r => r.json()).then(setStatus).catch(() => {})
+    Promise.all([
+      fetch('/api/v1/integrations/1c/presets/accounting').then(r => r.json()),
+      fetch('/api/v1/integrations/1c/presets/erp').then(r => r.json()),
+      fetch('/api/v1/integrations/1c/presets/trade_management').then(r => r.json()),
+    ]).then(([acc, erp, tm]) => setPresets({ accounting: acc, erp, trade_management: tm })).catch(() => {})
+  }, [])
+
+  const handleTest = async () => {
+    setTesting(true); setTestResult(null)
+    try {
+      const r = await fetch('/api/v1/integrations/1c/test-connection', { method: 'POST' })
+      setTestResult(await r.json())
+    } catch (e: any) { setTestResult({ ok: false, error: e.message }) }
+    setTesting(false)
+  }
+
+  const handleSync = async (entity: string) => {
+    setSyncing(entity); setSyncResult(null)
+    try {
+      const r = await fetch('/api/v1/integrations/1c/sync/' + entity, { method: 'POST' })
+      setSyncResult({ entity, ...(await r.json()) })
+    } catch (e: any) { setSyncResult({ entity, ok: false, error: e.message }) }
+    setSyncing('')
+  }
+
+  const currentPreset = presets[selectedPreset]
+
+  return (
+    <div className="space-y-5">
+      {/* Status */}
+      {status && (
+        <div className="bg-[#1E1B4B] border border-[#312E81] rounded-xl p-5">
+          <div className="flex items-center gap-3">
+            <div className={"w-3 h-3 rounded-full " + (status.enabled ? 'bg-emerald-500' : 'bg-gray-600')} />
+            <h2 className="text-base font-semibold">1С:Enterprise</h2>
+            <span className={"text-xs px-2 py-0.5 rounded-full " + (status.enabled ? 'bg-emerald-500/15 text-emerald-400' : 'bg-gray-500/15 text-gray-500')}>
+              {status.enabled ? 'Включён' : 'Не настроен'}
+            </span>
+            {status.config_name && <span className="text-xs text-gray-500 ml-2">{status.config_name}</span>}
+          </div>
+        </div>
+      )}
+
+      {/* Preset selector */}
+      <div className="bg-[#1E1B4B] border border-[#312E81] rounded-xl p-5">
+        <h3 className="text-sm font-semibold mb-3">Конфигурация 1С</h3>
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          {Object.entries(presets).map(([key, p]: [string, any]) => (
+            <button key={key} onClick={() => setSelectedPreset(key)}
+              className={"p-3 rounded-lg border text-left transition-colors " + (selectedPreset === key ? 'bg-indigo-600/20 border-indigo-500' : 'bg-[#15102E] border-[#312E81] hover:border-[#4338CA]')}>
+              <div className="text-sm font-medium">{p?.name}</div>
+            </button>
+          ))}
+        </div>
+        {currentPreset && (
+          <div className="bg-[#15102E] rounded-lg p-4">
+            <p className="text-sm text-gray-400 mb-3">{currentPreset.description}</p>
+            <div className="text-xs text-gray-500 mb-2">Объекты обмена:</div>
+            <div className="space-y-1">
+              {currentPreset.exchange_objects?.map((obj: string, i: number) => (
+                <div key={i} className="text-xs text-gray-400 flex items-center gap-2">
+                  <span className="text-indigo-400">▸</span> {obj}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Configuration form */}
+      <div className="bg-[#1E1B4B] border border-[#312E81] rounded-xl p-5">
+        <h3 className="text-sm font-semibold mb-4">Параметры подключения</h3>
+        <div className="grid grid-cols-2 gap-4">
+          {[
+            ['1C_BASE_URL', 'URL HTTP-сервиса', currentPreset?.base_url || 'http://1c.corp.local/CRM_BASE/hs/api'],
+            ['1C_USERNAME', 'Пользователь обмена', 'exchange_user'],
+            ['1C_PASSWORD', 'Пароль', '••••••••'],
+            ['1C_AUTH_TYPE', 'Тип авторизации', currentPreset?.auth_type || 'basic'],
+          ].map(([key, label, placeholder]) => (
+            <div key={key}>
+              <label className="text-xs text-gray-500 block mb-1">{label}</label>
+              {key.includes('AUTH_TYPE') ? (
+                <select className="w-full bg-[#2D2A6E] border border-[#312E81] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                  <option value="basic">Basic Auth</option>
+                  <option value="oauth2">OAuth2</option>
+                </select>
+              ) : (
+                <input type={key.includes('PASSWORD') ? 'password' : 'text'} placeholder={placeholder}
+                  className="w-full bg-[#2D2A6E] border border-[#312E81] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500" />
+              )}
+            </div>
+          ))}
+        </div>
+        {/* Sync options */}
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          {[
+            ['sync_counterparties', 'Контрагенты'],
+            ['sync_orders', 'Заказы покупателей'],
+            ['sync_payments', 'Платежи'],
+            ['sync_price_lists', 'Прайс-листы'],
+          ].map(([key, label]) => (
+            <label key={key} className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+              <input type="checkbox" defaultChecked={currentPreset?.[key] ?? true} className="w-4 h-4 rounded accent-indigo-600" />
+              {label}
+            </label>
+          ))}
+        </div>
+        <div className="flex gap-3 mt-5">
+          <button className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors">💾 Сохранить</button>
+          <button onClick={handleTest} disabled={testing}
+            className="bg-[#2D2A6E] hover:bg-[#363278] text-gray-300 text-sm px-5 py-2 rounded-lg transition-colors disabled:opacity-50">
+            {testing ? '🔄 Проверка...' : '🔌 Тест подключения'}
+          </button>
+        </div>
+      </div>
+
+      {/* Test result */}
+      {testResult && (
+        <div className={"rounded-xl p-4 border " + (testResult.ok ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30')}>
+          {testResult.ok ? (
+            <div>
+              <div className="flex items-center gap-2 mb-1"><span className="text-lg">✅</span><span className="text-sm font-medium text-emerald-400">1C HTTP-service доступен</span></div>
+              {testResult.config && <pre className="text-xs text-gray-400 mt-2 overflow-x-auto">{JSON.stringify(testResult.config, null, 2)}</pre>}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2"><span className="text-lg">❌</span><span className="text-sm font-medium text-red-400">{testResult.error}</span></div>
+          )}
+        </div>
+      )}
+
+      {/* Sync actions */}
+      <div className="bg-[#1E1B4B] border border-[#312E81] rounded-xl p-5">
+        <h3 className="text-sm font-semibold mb-4">Синхронизация данных</h3>
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            ['counterparties', '👥 Контрагенты', 'Справочник.Контрагенты'],
+            ['orders', '📋 Заказы', 'Документ.ЗаказПокупателя'],
+            ['payments', '💰 Платежи', 'Документ.ПлатежноеПоручение'],
+            ['all', '🔄 Полная синхр.', 'Все объекты обмена'],
+          ].map(([key, label, sub]) => (
+            <button key={key} onClick={() => handleSync(key as string)} disabled={!!syncing}
+              className="flex items-center gap-3 p-3 rounded-lg bg-[#15102E] border border-[#312E81] hover:border-indigo-700 transition-colors text-left disabled:opacity-50">
+              <span className="text-lg">{label.split(' ')[0]}</span>
+              <div className="flex-1">
+                <div className="text-sm font-medium">{label.split(' ').slice(1).join(' ')}</div>
+                <div className="text-xs text-gray-500">{sub}</div>
+              </div>
+              {syncing === key ? <span className="text-xs text-indigo-400">⏳</span> : <span className="text-xs text-gray-600">→</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Sync result */}
+      {syncResult && (
+        <div className={"rounded-xl p-4 border " + (syncResult.status === 'ok' || syncResult.status === 'mock' ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30')}>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-lg">{syncResult.status === 'ok' ? '✅' : syncResult.status === 'mock' ? '🧪' : '❌'}</span>
+            <span className="text-sm font-medium">
+              {syncResult.status === 'ok' ? 'Синхронизация выполнена' : syncResult.status === 'mock' ? 'Mock режим (1C не настроен)' : 'Ошибка'}
+            </span>
+            {syncResult.total_received !== undefined && (
+              <span className="text-xs text-gray-500 ml-auto">
+                Получено: {syncResult.total_received} · Создано: {syncResult.created || 0} · Обновлено: {syncResult.updated || 0}
+              </span>
+            )}
+          </div>
+          {syncResult.items_preview && syncResult.items_preview.length > 0 && (
+            <div className="space-y-1 mt-2">
+              {syncResult.items_preview.slice(0, 5).map((item: any, i: number) => (
+                <div key={i} className="text-xs text-gray-400 bg-[#15102E] rounded px-2 py-1 flex items-center gap-2">
+                  <span className="text-indigo-400">▸</span>
+                  {item.name || item.number || '—'}
+                  {item.inn && <span className="text-gray-600">ИНН: {item.inn}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
