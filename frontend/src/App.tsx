@@ -13,11 +13,12 @@ import { FinancePage } from './pages/FinancePage'
 import { DocumentsPage } from './pages/DocumentsPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
 import { IntegrationsPage } from './pages/IntegrationsPage'
+import { EmailPage } from './pages/EmailPage'
 import { ReminderToasts } from './components/ReminderToasts'
 import { GlobalSearch } from './components/GlobalSearch'
 import { NotificationCenter } from './components/NotificationCenter'
 
-type PageKey = 'dashboard' | 'leads' | 'deals' | 'customers' | 'contacts' | 'tasks' | 'calendar' | 'finance' | 'documents' | 'analytics' | 'integrations' | 'users' | 'profile'
+type PageKey = 'dashboard' | 'leads' | 'deals' | 'customers' | 'contacts' | 'tasks' | 'calendar' | 'finance' | 'documents' | 'analytics' | 'email' | 'integrations' | 'users' | 'profile'
 
 interface DashboardData {
   kpis: { new_leads: number; active_deals: number; revenue_month: number; overdue_tasks: number }
@@ -42,6 +43,7 @@ function getNavItems(userRole: string) {
     { key: 'finance', icon: '💰', label: 'Финансы' },
     { key: 'documents', icon: '📄', label: 'Документы' },
     { key: 'analytics', icon: '📈', label: 'Аналитика' },
+    { key: 'email', icon: '✉️', label: 'Почта', badge: 2 },
   ]
   if (userRole === 'admin') {
     items.push({ key: 'integrations', icon: '🔌', label: 'Интеграции', adminOnly: true })
@@ -202,7 +204,7 @@ function App() {
     dashboard: 'Сводка за день', leads: 'Входящие заявки', deals: 'Воронка продаж',
     customers: 'База клиентов', contacts: 'Контакты клиентов', tasks: 'Задачи и контроль', calendar: 'Календарь',
     finance: 'Счета и оплаты', documents: 'Документы', analytics: 'Отчёты',
-    integrations: 'Интеграции и API', users: 'Управление пользователями', profile: 'Личные данные',
+    email: 'Электронная почта', integrations: 'Интеграции и API', users: 'Управление пользователями', profile: 'Личные данные',
   }
 
   return (
@@ -221,6 +223,7 @@ function App() {
           {page === 'finance' && <FinancePage />}
           {page === 'documents' && <DocumentsPage />}
           {page === 'analytics' && <AnalyticsPage />}
+          {page === 'email' && <EmailPage />}
           {page === 'integrations' && user.role === 'admin' && <IntegrationsPage />}
           {page === 'users' && user.role === 'admin' && <UsersPage />}
           {page === 'profile' && <ProfilePage />}

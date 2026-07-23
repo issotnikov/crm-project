@@ -92,6 +92,12 @@ export const api = {
   getEvents: (start?: string, end?: string) => apiFetch(`/mock/tasks/calendar/events${start ? `?start=${encodeURIComponent(start)}` : ''}${end ? `${start ? '&' : '?'}end=${encodeURIComponent(end)}` : ''}`),
   createEvent: (data: any) => apiFetch('/mock/tasks/calendar/events', { method: 'POST', body: JSON.stringify(data) }),
 
+  // Email
+  getEmailStatus: () => apiFetch('/integrations/email/status'),
+  getInbox: (limit?: number) => apiFetch('/integrations/email/inbox' + (limit ? '?limit=' + limit : '')),
+  getSentEmails: (limit?: number) => apiFetch('/integrations/email/sent' + (limit ? '?limit=' + limit : '')),
+  sendEmail: (data: any) => apiFetch('/integrations/email/send', { method: 'POST', body: JSON.stringify(data) }),
+
   // Analytics
   getDashboard: () => apiFetch('/analytics/dashboard'),
 

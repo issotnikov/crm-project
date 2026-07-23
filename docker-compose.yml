@@ -114,6 +114,15 @@ services:
       - WEBFORM_API_KEY=${WEBFORM_API_KEY:-}
       - RECAPTCHA_SECRET_KEY=${RECAPTCHA_SECRET_KEY:-}
       - CORS_ORIGINS=${CORS_ORIGINS:-*}
+      # Email module (optional)
+      - EMAIL_ENABLED=${EMAIL_ENABLED:-false}
+      - EMAIL_IMAP_HOST=${EMAIL_IMAP_HOST:-}
+      - EMAIL_IMAP_PORT=${EMAIL_IMAP_PORT:-993}
+      - EMAIL_SMTP_HOST=${EMAIL_SMTP_HOST:-}
+      - EMAIL_SMTP_PORT=${EMAIL_SMTP_PORT:-465}
+      - EMAIL_USER=${EMAIL_USER:-}
+      - EMAIL_PASSWORD=${EMAIL_PASSWORD:-}
+      - EMAIL_FROM_NAME=${EMAIL_FROM_NAME:-CRM System}
     depends_on:
       postgres:
         condition: service_healthy
